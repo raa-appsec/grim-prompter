@@ -1,0 +1,1620 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Threat model report</title>
+<style>
+/*TM_FONTS*/
+/* One report, one page language: black bands, purple accents, square cards with a 3px accent rule. */
+:root{
+  --bg:#fff; --ink:#000; --muted:#5f5d68; --head:#460073; --sub:#7500c0;
+  --accent:#a100ff; --accentink:#fff;
+  --panel:#f6f4f9; --panel2:#ebe4f5; --line:#d9cfea; --box:#fff; --src:#f1f0f3; --srcline:#dcdae0;
+  --bandbg:#000; --bandhead:#fff; --bandsub:#d2a5ff;
+  --acc:#00705c; --accbg:#dcf3ee; --risk:#9a5200; --riskbg:#fdeed6; --prod:#7500c0; --prodbg:#f0e1ff;
+  --bad:#b3261e; --badbg:#fde7e4; --neutral:#4a4852; --neutralbg:#ecebef;
+  --find:#e0541b; --loop:#008a73; --verif:#b77400; --flow:#7500c0; --guard:#8b8992;
+  --codebg:#0e0e11; --codeink:#f3eefc;
+  --f-display:"Archivo",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-body:"Hanken Grotesk",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+  --radius:2px; color-scheme:light;
+}
+:root[data-skin="dark"]{
+  --bg:#000; --ink:#fff; --muted:#b3b2b8; --head:#fff; --sub:#be82ff;
+  --panel:#0e0e11; --panel2:#19181e; --line:#33313a; --box:#232129; --src:#16151a; --srcline:#33313a;
+  --bandbg:#2a0845; --bandhead:#fff; --bandsub:#dcafff;
+  --acc:#5fe0b8; --accbg:#0f332d; --risk:#ffc266; --riskbg:#3a2a0e; --prod:#dcafff; --prodbg:#3a1560;
+  --bad:#ff8a80; --badbg:#3d1512; --neutral:#c9c7d1; --neutralbg:#2a2830;
+  --find:#ff8a5c; --loop:#3ddbb0; --verif:#ffc266; --flow:#be82ff; --guard:#85838c;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+[id]{scroll-margin-top:44px}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.55}
+button,input,select{font:inherit;color:inherit}
+a{color:var(--sub)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+code,.mono{font-family:var(--f-mono);font-size:.86em}
+.hidden{display:none!important}
+
+/* shell */
+body{display:grid;grid-template-columns:264px minmax(0,1fr);align-items:start}
+#side{position:sticky;top:0;height:100vh;height:100dvh;overflow-y:auto;display:flex;flex-direction:column;background:var(--panel);border-right:1px solid var(--line);font-size:14.5px}
+#side .brand{display:block;padding:18px 18px 16px;text-decoration:none;color:var(--ink);border-bottom:1px solid var(--line)}
+#side .brand img{display:block;max-width:180px;max-height:48px;margin-bottom:12px}
+#side .brand b{display:block;font-family:var(--f-display);font-weight:600;font-size:15.5px;line-height:1.2}
+#side .brand span{color:var(--sub);font-family:var(--f-display);font-weight:600;font-size:14px}
+#sidenav{padding:10px 8px 14px;flex:1}
+#sidenav a{display:block;padding:7px 10px;border-radius:6px;color:var(--ink);text-decoration:none;line-height:1.3;border-left:3px solid transparent}
+#sidenav a:hover{background:var(--panel2)}
+#sidenav a[aria-current="true"]{background:var(--panel2);border-left-color:var(--accent);font-weight:600}
+#sidenav a.sub{padding:5px 10px 5px 22px;font-size:13.5px;color:var(--muted)}
+#sidenav h6{font-family:var(--f-display);font-size:12px;font-weight:600;color:var(--sub);margin:16px 10px 6px;letter-spacing:.02em}
+.sidefoot{padding:12px 16px 16px;border-top:1px solid var(--line);display:flex;gap:8px;flex-wrap:wrap}
+.btn{text-decoration:none;color:var(--ink);background:var(--box);border:1px solid var(--line);border-radius:999px;padding:5px 14px;cursor:pointer;font-size:13.5px}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accentink)}
+#main{min-width:0}
+.classification{text-align:center;font-family:var(--f-display);font-weight:600;letter-spacing:.08em;font-size:12px;padding:4px 8px;color:#fff;position:sticky;top:0;z-index:30}
+#page{max-width:1560px;margin:0 auto;padding:26px 44px 90px}
+
+/* cover */
+.cover{background:var(--bandbg);color:#fff;padding:38px 40px 34px;border-left:6px solid var(--accent)}
+.cover .kick{font-family:var(--f-display);font-weight:600;color:var(--bandsub);font-size:15px;margin:0 0 10px}
+.cover h1{font-family:var(--f-display);font-weight:600;font-size:clamp(34px,4vw,56px);line-height:1.04;letter-spacing:-.02em;margin:0 0 12px;text-wrap:balance}
+.cover .lede{font-size:21px;line-height:1.4;color:#e6dcf5;margin:0 0 26px;max-width:60ch}
+.cover dl{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:14px 28px;margin:0;border-top:1px solid #3a2b52;padding-top:20px}
+.cover dt{font-size:12px;color:var(--bandsub);font-family:var(--f-display);font-weight:600}
+.cover dd{margin:2px 0 0;font-size:15px}
+
+/* sections */
+section.sec{margin-top:64px}
+.shead{border-bottom:3px solid var(--ink);padding-bottom:14px;margin-bottom:24px}
+.shead small{display:block;font-family:var(--f-display);font-weight:600;color:var(--sub);font-size:15px;margin-bottom:4px}
+.shead h2{font-family:var(--f-display);font-weight:600;font-size:clamp(28px,3vw,42px);line-height:1.06;letter-spacing:-.02em;margin:0}
+.shead p{font-size:18px;color:var(--muted);margin:10px 0 0;max-width:75ch;line-height:1.45}
+h3{font-family:var(--f-display);font-size:24px;font-weight:600;letter-spacing:-.01em;margin:40px 0 6px}
+h3+p.intro{margin-top:0}
+h4{font-family:var(--f-display);font-size:15px;font-weight:600;color:var(--sub);margin:22px 0 8px}
+p{margin:0 0 12px}
+p.lead{font-size:18.5px;line-height:1.6;max-width:80ch}
+p.intro,.note{color:var(--muted);font-size:14.5px;max-width:95ch}
+.empty{color:var(--muted);font-style:italic}
+ul.plain{margin:0;padding-left:18px}
+ul.plain li{margin:2px 0}
+
+.two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:40px;margin-top:26px}
+.two h4{margin-top:0}
+.nums{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));border-top:1px solid var(--line);border-bottom:1px solid var(--line);margin:26px 0}
+.nums>div{padding:18px 18px 18px 0}
+.nums>div+div{border-left:1px solid var(--line);padding-left:18px}
+.nums b{display:block;font-family:var(--f-display);font-size:40px;line-height:1;color:var(--accent)}
+.nums span{display:block;font-size:14px;line-height:1.35;margin-top:6px}
+.klist{list-style:none;margin:0;padding:0}
+.klist li{border-top:1px solid var(--line);padding:11px 0}
+.klist b{font-family:var(--f-display);font-size:16.5px}
+.klist p{margin:2px 0 0;font-size:15px;line-height:1.45}
+ol.steps{list-style:none;margin:0;padding:0;counter-reset:s}
+ol.steps li{counter-increment:s;position:relative;border-top:1px solid var(--line);padding:11px 0 11px 44px;font-size:16px;line-height:1.45}
+ol.steps li::before{content:counter(s);position:absolute;left:0;top:10px;width:28px;height:28px;border-radius:50%;background:var(--accent);color:#fff;font-family:var(--f-display);font-weight:700;font-size:14px;display:grid;place-items:center}
+ol.steps .refs{display:block;margin-top:3px}
+.basis{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--accent);padding:18px 22px;margin-top:28px;font-size:15px}
+.basis h4{margin-top:0}
+.basis ul{margin:0;padding-left:18px}
+.card{background:var(--box);border:1px solid var(--line);border-top:3px solid var(--accent);padding:18px 20px;margin:14px 0}
+.card .chead{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:baseline;margin-bottom:8px}
+.card .ctitle{font-family:var(--f-display);font-size:18px;font-weight:600;line-height:1.3;margin:0 0 8px}
+
+/* tables */
+.tw{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:14.5px;margin:8px 0 18px}
+th{text-align:left;font-family:var(--f-display);font-weight:600;border-bottom:2px solid var(--accent);padding:8px 12px 8px 0;white-space:nowrap;vertical-align:bottom}
+td{border-bottom:1px solid var(--line);padding:9px 12px 9px 0;vertical-align:top;line-height:1.45}
+th.sortable{cursor:pointer;user-select:none}
+th.sortable::after{content:" \2195";color:var(--muted);font-size:11px}
+th.sort-asc::after{content:" \2191";color:var(--accent)} th.sort-desc::after{content:" \2193";color:var(--accent)}
+.line{display:block;margin:0 0 5px}
+tr:target td{background:var(--panel2)}
+.card:target,details.threat:target{box-shadow:0 0 0 2px var(--accent)}
+.tid{font-family:var(--f-mono);font-weight:500;color:var(--sub);white-space:nowrap}
+
+/* chips, tags, refs */
+.tag{display:inline-block;font-size:11px;font-weight:600;letter-spacing:.03em;border-radius:3px;padding:2px 7px;text-transform:uppercase;white-space:nowrap;margin:1px 3px 1px 0;color:var(--neutral);background:var(--neutralbg)}
+.tag.bad{color:var(--bad);background:var(--badbg)} .tag.ok{color:var(--acc);background:var(--accbg)}
+.tag.warn{color:var(--risk);background:var(--riskbg)} .tag.info{color:var(--prod);background:var(--prodbg)}
+.tag.rating{color:#fff}
+.fw{display:inline-block;font-size:13px;border:1px solid var(--line);border-radius:4px;padding:2px 8px;background:var(--box);margin:2px 4px 2px 0;line-height:1.35}
+.fw b{font-family:var(--f-mono);font-weight:500;color:var(--sub)}
+.fw.unv{border-style:dashed;color:var(--muted)}
+a.ref,span.ref{font-family:var(--f-mono);font-size:12.5px;text-decoration:none;border-radius:3px;padding:1px 6px;white-space:nowrap;background:var(--panel2);color:var(--head)}
+a.ref:hover{background:var(--accent);color:#fff}
+span.ref{background:var(--src);color:var(--muted)}
+span.ref.dangling{background:var(--badbg);color:var(--bad)}
+a.ref.k-threats{background:color-mix(in srgb,var(--find) 16%,var(--box));}
+a.ref.k-controls{background:color-mix(in srgb,var(--loop) 16%,var(--box));}
+a.ref.k-verification{background:color-mix(in srgb,var(--verif) 20%,var(--box));}
+a.ref:hover{background:var(--accent)}
+
+/* toolbar */
+.toolbar{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center;margin:10px 0 14px;font-size:13.5px}
+.toolbar input[type=search],.toolbar select{background:var(--box);border:1px solid var(--line);border-radius:999px;padding:6px 14px;font-size:13.5px}
+.toolbar input[type=search]{min-width:260px;-webkit-appearance:none;appearance:none}
+.toolbar label{display:inline-flex;gap:6px;align-items:center;border:1px solid var(--line);border-radius:999px;padding:4px 12px;background:var(--box);cursor:pointer}
+.toolbar .count{color:var(--muted);margin-left:auto}
+.sw{display:inline-block;width:12px;height:12px;border-radius:2px}
+
+/* threats */
+details.threat{border:1px solid var(--line);border-top:3px solid var(--accent);margin:12px 0;background:var(--box)}
+details.threat>summary{cursor:pointer;padding:14px 18px;list-style:none;display:flex;gap:8px 10px;align-items:baseline;flex-wrap:wrap}
+details.threat>summary::-webkit-details-marker{display:none}
+details.threat>summary::after{content:"+";margin-left:auto;color:var(--muted);font-size:20px;line-height:1}
+details.threat[open]>summary::after{content:"\2212"}
+details.threat .stitle{font-family:var(--f-display);font-weight:600;font-size:17.5px;flex:1 1 380px}
+details.threat .body{padding:2px 18px 18px;border-top:1px solid var(--line)}
+details.threat .body>p:first-child{font-size:17px;margin-top:14px;max-width:95ch}
+details.fold{border-top:1px solid var(--line);padding:10px 0}
+details.fold:last-of-type{border-bottom:1px solid var(--line)}
+details.fold>summary{cursor:pointer;font-family:var(--f-display);font-weight:600;font-size:16px}
+details.fold>summary small{font-family:var(--f-body);font-weight:400;color:var(--muted);margin-left:8px}
+dl.fields{display:grid;grid-template-columns:190px minmax(0,1fr);gap:7px 16px;margin:10px 0;font-size:15px}
+dl.fields dt{color:var(--muted);font-size:13.5px}
+dl.fields dd{margin:0}
+.route{display:flex;flex-wrap:wrap;align-items:stretch;gap:6px 0;margin:10px 0 14px}
+.route .hop{border:1px solid var(--line);border-left:3px solid var(--accent);background:var(--panel);padding:7px 11px;font-size:13.5px;line-height:1.3;max-width:230px}
+.route .hop small{display:block;font-family:var(--f-mono);font-size:10.5px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+.route .hop.vendor{border-left-color:var(--muted)} .route .hop.goal{border-left-color:var(--bad)}
+.route .arrow{display:flex;flex-direction:column;justify-content:center;align-items:center;min-width:44px;padding:0 6px;color:var(--muted);font-size:17px;line-height:1}
+.route .arrow small{font-family:var(--f-mono);font-size:9.5px;letter-spacing:.03em;text-transform:uppercase;color:var(--bad);margin-top:3px;text-align:center;max-width:150px;line-height:1.25}
+ol.cases{margin:0;padding-left:20px} ol.cases li{margin:3px 0}
+.criteria{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:12px}
+.criteria div{padding:10px 12px;font-size:14px;border-left:3px solid var(--line);background:var(--panel)}
+.criteria .pass{border-color:var(--loop)} .criteria .fail{border-color:var(--bad)} .criteria .inc{border-color:var(--verif)}
+.criteria b{display:block;font-family:var(--f-display);font-size:12.5px;color:var(--sub)}
+pre{background:var(--codebg);color:var(--codeink);padding:12px 14px;font-family:var(--f-mono);font-size:12.5px;white-space:pre-wrap;overflow-wrap:anywhere;margin:6px 0}
+.tree ul{list-style:none;padding-left:22px;border-left:1px dashed var(--line);margin:4px 0}
+.op{font-family:var(--f-mono);font-size:11px;padding:0 5px;border-radius:3px;background:var(--sub);color:var(--bg);margin-right:6px}
+
+/* architecture diagram */
+.dia{border:1px solid var(--line);background:var(--panel);margin-top:8px}
+.diahead{background:var(--bandbg);color:#fff;padding:10px 16px;display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center;font-size:13px}
+.diahead b{font-family:var(--f-display);font-weight:600;font-size:15px;margin-right:auto}
+.diahead label{display:inline-flex;gap:6px;align-items:center;cursor:pointer}
+.diahead .k{display:inline-flex;gap:6px;align-items:center;color:var(--bandsub)}
+.diahead i{display:inline-block;width:26px;height:0;border-top:2px solid #b9b2c4}
+.diahead i.x{border-top:2px dashed #ff8a5c}
+.zooms{display:inline-flex;gap:4px}.zooms .btn{background:#2a2136;border-color:#4a3a66;color:#fff;padding:2px 11px}
+.diascroll{overflow:auto;padding:8px}
+.diascroll svg{display:block;margin:0 auto;max-width:none}
+.diainfo{border-top:1px solid var(--line);padding:10px 16px;font-size:14px;min-height:42px;background:var(--box)}
+svg text{font-family:var(--f-body)}
+svg .node{cursor:pointer}
+svg .node rect.b{fill:var(--box);stroke:var(--line);stroke-width:1.2}
+svg .node:hover rect.b,svg .node.sel rect.b{stroke:var(--accent);stroke-width:2}
+svg .node>text,svg .node>rect.bar,svg .chip text,svg .edge .el text{pointer-events:none}
+svg .node .nid{font-family:var(--f-mono);font-size:11px;fill:var(--sub)}
+svg .node .nk{font-size:10.5px;fill:var(--muted)}
+svg .node .nn{font-size:13.5px;font-weight:600;fill:var(--ink)}
+svg .node.n-actors rect.b{fill:var(--bandbg);stroke:var(--bandbg)}
+svg .node.n-actors .nid{fill:var(--bandsub)} svg .node.n-actors .nk{fill:#cfc6dc} svg .node.n-actors .nn{fill:#fff}
+svg .node.n-entry_points rect.b{fill:var(--panel2);stroke:var(--sub)}
+svg .node.n-ext rect.b{fill:var(--src);stroke:var(--srcline)}
+svg .node.n-unknown rect.b{fill:var(--badbg);stroke:var(--bad);stroke-dasharray:5 4}
+svg .node rect.bar{fill:var(--accent)}
+svg .edge path{fill:none;stroke:var(--guard);stroke-width:1.5}
+svg .edge.x path{stroke:var(--find);stroke-dasharray:6 4}
+svg .edge .el{cursor:pointer}
+svg .edge .el rect{fill:var(--panel);stroke:var(--line)}
+svg .edge.x .el rect{stroke:var(--find)}
+svg .edge .el text{font-family:var(--f-mono);font-size:10px;fill:var(--muted)}
+svg .chip{cursor:pointer}
+svg .chip text{font-family:var(--f-mono);font-size:10.5px;fill:#fff;font-weight:500}
+svg .chip-t rect{fill:#e0541b} svg .chip-c rect{fill:#00705c} svg .chip-v rect{fill:#9a5200}
+svg .chip:hover rect,svg .chip:focus rect{stroke:var(--ink);stroke-width:2}
+svg.hide-t .chip-t,svg.hide-c .chip-c,svg.hide-v .chip-v{display:none}
+svg .dim{opacity:.14}
+#tip{position:fixed;z-index:80;max-width:380px;background:#16121d;color:#fff;border:1px solid #4a3a66;border-radius:8px;padding:10px 12px;font-size:13.5px;line-height:1.4;box-shadow:0 10px 32px rgba(0,0,0,.35);pointer-events:none}
+#tip b{display:block;font-family:var(--f-display);font-weight:600;margin-bottom:2px}
+#tip small{display:block;color:#d2a5ff;font-size:12px;margin-bottom:4px}
+#tip em{display:block;font-style:normal;color:#a995c4;font-size:12px;margin-top:6px}
+
+/* risk matrix */
+table.rm{table-layout:fixed;border-collapse:separate;border-spacing:3px;font-size:13.5px}
+table.rm th,table.rm td{border:0;padding:8px;text-align:center;vertical-align:middle;white-space:normal}
+table.rm th{background:var(--panel);font-size:13px}
+table.rm th small{display:block;font-family:var(--f-body);font-weight:400;color:var(--muted);font-size:11.5px;line-height:1.3}
+table.rm td.cell{color:#fff;font-family:var(--f-display);font-weight:600;height:74px}
+table.rm td.cell .ref{display:inline-block;margin:3px 2px 0;background:rgba(255,255,255,.92);color:#000}
+table.rm .axis{background:var(--bandbg);color:#fff;font-family:var(--f-display)}
+.foot{margin-top:70px;padding-top:16px;border-top:3px solid var(--ink);font-size:13px;color:var(--muted);display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px}
+
+@media (max-width:1000px){body{display:block}#side{position:static;height:auto}#page{padding:18px 18px 60px}.two{grid-template-columns:1fr;gap:20px}dl.fields{grid-template-columns:1fr}.criteria{grid-template-columns:1fr}}
+@page{size:A4 landscape;margin:12mm}
+@media print{
+  body{display:block;font-size:11pt}
+  #side,.toolbar,.noprint,#tip{display:none!important}
+  #page{max-width:none;padding:0}
+  .classification{position:fixed;left:0;right:0;top:0}
+  section.sec{break-before:page;margin-top:0;padding-top:6mm}
+  .cover{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .card,details.threat,tr,.nums,.dia,.criteria,.klist li,ol.steps li{break-inside:avoid}
+  .diascroll{overflow:visible}.diascroll svg{width:100%!important;max-width:100%;height:auto}
+  svg .dim{opacity:1}
+  .hidden{display:revert!important}
+  a{text-decoration:none}
+}
+
+/* round 3: verdicts, coverage, plans */
+.verdicts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin:28px 0 8px}
+.vcard{background:var(--box);border:1px solid var(--line);border-top:3px solid var(--accent);padding:18px 20px 16px;display:flex;flex-direction:column}
+.vcard h4{margin:0 0 10px}
+.vbig{display:flex;gap:12px;align-items:baseline;margin-bottom:8px}
+.vbig b{font-family:var(--f-display);font-size:44px;line-height:1;color:var(--accent);white-space:nowrap}
+.vbig span{font-size:14.5px;line-height:1.3;color:var(--muted)}
+.vcard p{font-size:15.5px;line-height:1.5;margin:0 0 12px}
+.vcard a{margin-top:auto;font-size:14px}
+.tick{white-space:pre;color:var(--muted);font-size:13px}
+.do{display:inline-block;min-width:54px;font-family:var(--f-display);font-weight:600;font-size:12.5px;color:var(--sub)}
+.riskcell{white-space:nowrap}.riskcell .arrow{color:var(--muted)}
+.tag.rating{color:#fff}
+.prio{display:inline-block;font-family:var(--f-display);font-weight:700;font-size:12.5px;border-radius:999px;padding:1px 10px;background:var(--neutralbg);color:var(--neutral)}
+.prio.p1{background:var(--bad);color:var(--bg)}.prio.p2{background:var(--find);color:#fff}.prio.p3{background:var(--riskbg);color:var(--risk)}
+.tl{line-height:1.45}
+.stmt{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:16px;margin-top:16px}
+.stmt>div{background:var(--panel);border-left:3px solid var(--line);padding:12px 16px}
+.stmt>div.imp{border-left-color:var(--find)}
+.stmt b{display:block;font-family:var(--f-display);font-size:13.5px;color:var(--sub);margin-bottom:4px}
+.stmt p{margin:0;font-size:16px;line-height:1.5}
+.three{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:22px;border-top:1px solid var(--line);border-bottom:1px solid var(--line);margin:14px 0;padding:4px 0 14px}
+.three h4{margin-top:14px}.three ul.plain li{margin:0 0 8px;font-size:14.5px;line-height:1.45}.three p{font-size:14.5px}
+.nums>div.cov-none b{color:var(--bad)}.nums>div.cov-partial b{color:var(--risk)}.nums>div.cov-verified b{color:var(--acc)}
+.cover .draft{display:inline-block;margin-left:12px;background:var(--accent);color:#fff;border-radius:3px;padding:1px 9px;font-size:12px;letter-spacing:.04em;text-transform:uppercase}
+.doccontrol{margin-top:18px}
+.dialegend{display:flex;flex-wrap:wrap;gap:6px 18px;padding:9px 16px;border-bottom:1px solid var(--line);background:var(--box);font-size:12.5px;color:var(--muted)}
+.dialegend .k{display:inline-flex;gap:6px;align-items:center}
+.dialegend b{color:var(--ink);font-size:11px}.dialegend b.cgreen{color:#00705c}.dialegend b.camber{color:#9a5200}
+.dialegend i.lg{display:inline-block}
+.dialegend i.sq{width:12px;height:12px;border-radius:2px}
+.dialegend i.zn{width:22px;height:13px;border:1.5px dashed var(--sub);border-radius:3px}
+.dialegend i.ln{width:24px;border-top:2px solid var(--guard)}
+.dialegend i.lx{width:24px;border-top:2px dashed var(--find)}
+.dialegend i.vd{width:22px;height:12px;background:var(--src);border:1px solid var(--srcline)}
+svg .node .nk.vend{fill:var(--sub);font-weight:600}
+.dialegend i.st{width:22px;height:12px;border-top:2.5px solid var(--ink);border-bottom:2.5px solid var(--ink);background:var(--box)}
+.diahead label{display:inline-flex;gap:5px;align-items:center;cursor:pointer}
+svg .zone rect{fill:color-mix(in srgb,var(--panel2) 45%,transparent);stroke:var(--sub);stroke-width:1.4;stroke-dasharray:7 5}
+svg .zone text{font-family:var(--f-display);font-size:13px;font-weight:600;fill:var(--sub)}
+svg .node rect.bar{fill:var(--line)}
+svg .node.cov-none rect.bar{fill:var(--bad)}svg .node.cov-partial rect.bar{fill:#e0a100}svg .node.cov-controlled rect.bar{fill:var(--accent)}svg .node.cov-verified rect.bar{fill:var(--loop)}
+svg .node.n-store rect.b{stroke:none}
+svg .node .sl{stroke:var(--ink);stroke-width:2.5}
+svg .node.n-store.cov-none .sl{stroke:var(--bad)}svg .node.n-store.cov-partial .sl{stroke:#e0a100}
+svg .chip rect{stroke-width:1.3}
+@media (max-width:1000px){.verdicts,.three,.stmt{grid-template-columns:1fr}}
+@media print{.verdicts{break-inside:avoid}.vcard a{display:none}.three{break-inside:avoid}.dialegend{-webkit-print-color-adjust:exact}body{font-size:10pt}h3{break-after:avoid}.shead{break-after:avoid}}
+@media print{
+  html,body{font-size:8.6pt;line-height:1.4}
+  #page{padding:0}
+  .cover{padding:16mm 14mm 12mm}.cover h1{font-size:30pt}.cover .lede{font-size:13pt;margin-bottom:14px}
+  section.sec{break-before:auto;margin-top:22px;padding-top:0}
+  #tech,#threats,#controls,#recs,#verif,#pentest,#scope,#app-a{break-before:page;margin-top:0;padding-top:5mm}
+  .shead{padding-bottom:6px;margin-bottom:12px}.shead h2{font-size:20pt}.shead p{font-size:10pt;margin-top:4px}.shead small{font-size:9pt}
+  h3{font-size:13pt;margin:18px 0 4px}h4{font-size:9pt;margin:10px 0 4px}
+  p.lead{font-size:10pt;max-width:none}p.intro,.note{font-size:8pt;max-width:none}
+  table{font-size:8pt;margin:4px 0 10px}th{padding:4px 8px 4px 0}td{padding:4px 8px 4px 0}
+  .tag{font-size:6.6pt;padding:1px 4px}a.ref,span.ref{font-size:7.2pt;padding:0 3px}.fw{font-size:7.4pt;padding:1px 5px}
+  .nums{margin:10px 0}.nums>div{padding:8px 10px 8px 0}.nums>div+div{padding-left:10px}.nums b{font-size:20pt}.nums span{font-size:8pt;margin-top:2px}
+  .verdicts{gap:10px;margin:12px 0 4px}.vcard{padding:10px 12px}.vbig b{font-size:24pt}.vbig span{font-size:8pt}.vcard p{font-size:8.6pt;margin-bottom:0}
+  .two{gap:24px;margin-top:12px}.klist li{padding:5px 0}.klist b{font-size:9.5pt}.klist p{font-size:8.4pt}
+  ol.steps li{padding:5px 0 5px 30px;font-size:8.8pt}ol.steps li::before{width:19px;height:19px;font-size:8pt;top:5px}
+  .basis{padding:8px 12px;margin-top:12px;font-size:8.2pt}
+  .card{padding:9px 12px;margin:8px 0}.card .ctitle{font-size:10pt;margin-bottom:4px}
+  details.threat{margin:8px 0}details.threat>summary{padding:7px 12px}details.threat .stitle{font-size:10.5pt}details.threat>summary::after{display:none}
+  details.threat .body{padding:0 12px 8px}details.threat .body>p:first-child{font-size:9pt}
+  .stmt{gap:10px;margin-top:8px}.stmt>div{padding:7px 10px}.stmt p{font-size:8.8pt}.stmt b{font-size:8pt}
+  dl.fields{grid-template-columns:130px minmax(0,1fr);gap:3px 10px;margin:6px 0;font-size:8.4pt}dl.fields dt{font-size:7.8pt}
+  .three{gap:14px;margin:8px 0;padding:0 0 6px}.three h4{margin-top:8px}.three ul.plain li,.three p{font-size:8.2pt;margin-bottom:4px}
+  .criteria{gap:6px;margin-top:6px}.criteria div{padding:5px 8px;font-size:8pt}.criteria b{font-size:7.4pt}
+  details.fold{padding:5px 0}details.fold>summary{font-size:9.5pt}
+  .dia{break-inside:avoid}.diahead{padding:5px 10px;font-size:8pt}.diahead b{font-size:9.5pt}.diahead label input{display:none}.dialegend{padding:5px 10px;font-size:7.4pt;gap:3px 12px}
+  .diascroll{padding:4px}.diascroll svg{width:100%!important;height:auto!important;max-width:100%!important}
+  table.rm td.cell{height:38px}table.rm th,table.rm td{padding:4px}table.rm{font-size:7.6pt}
+  .foot{margin-top:20px;font-size:7.5pt}
+  .classification{font-size:7pt;padding:2px}
+  .basis,.vcard,.stmt,.klist li{break-inside:avoid}
+  th.sortable::after{content:""!important}
+  #exec-glance{break-before:auto}
+  pre{font-size:7pt}
+}
+</style>
+</head>
+<body>
+<noscript><p style="padding:24px">This report needs JavaScript to display. Open it in a current browser with scripts enabled.</p></noscript>
+<script type="application/json" id="tm-data">/*TM_DATA*/</script>
+<script type="application/json" id="tm-engagement">/*TM_ENGAGEMENT*/</script>
+<script type="application/json" id="tm-branding">/*TM_BRANDING*/</script>
+<script>
+(function () {
+  'use strict';
+
+  // ---------- Safe DOM helpers: data is never parsed as markup ----------
+  var SVGNS = 'http://www.w3.org/2000/svg';
+  function append(el, kids) {
+    for (var i = 0; i < kids.length; i++) {
+      var c = kids[i];
+      if (c === null || c === undefined || c === false) continue;
+      if (Array.isArray(c)) { append(el, c); continue; }
+      el.appendChild(c instanceof Node ? c : document.createTextNode(String(c)));
+    }
+    return el;
+  }
+  function setAttrs(el, attrs) {
+    if (!attrs) return;
+    Object.keys(attrs).forEach(function (k) {
+      var v = attrs[k];
+      if (v === null || v === undefined || v === false) return;
+      if (/^on/i.test(k) || k === 'style' || k === 'src' || k === 'srcdoc') return;
+      if (k === 'href' && String(v).charAt(0) !== '#') return;
+      el.setAttribute(k, v === true ? '' : String(v));
+    });
+  }
+  function h(tag, attrs) { var el = document.createElement(tag); setAttrs(el, attrs); return append(el, Array.prototype.slice.call(arguments, 2)); }
+  function s(tag, attrs) { var el = document.createElementNS(SVGNS, tag); setAttrs(el, attrs); return append(el, Array.prototype.slice.call(arguments, 2)); }
+  function arr(v) { return Array.isArray(v) ? v : []; }
+  function obj(v) { return v && typeof v === 'object' && !Array.isArray(v) ? v : {}; }
+  function str(v) { return v === null || v === undefined ? '' : String(v); }
+  function trunc(t, n) { t = str(t); return t.length > n ? t.slice(0, n - 1) + '…' : t; }
+  function paras(v) { return (Array.isArray(v) ? v : (v ? [v] : [])).map(str).filter(Boolean); }
+  function readJSON(id) { try { return JSON.parse(document.getElementById(id).textContent); } catch (e) { return undefined; } }
+  function uniq(a) { var seen = {}, out = []; a.forEach(function (x) { if (!seen[x]) { seen[x] = 1; out.push(x); } }); return out; }
+
+  var data = readJSON('tm-data');
+  var eng = obj(readJSON('tm-engagement'));
+  var branding = obj(readJSON('tm-branding'));
+  if (!data || typeof data !== 'object' || !data.model) {
+    document.body.style.display = 'block';
+    append(document.body, [h('p', { class: 'basis' }, h('b', null, 'No threat model data is embedded in this file. '),
+      'This is the unfilled renderer template or the embedded JSON is invalid. Rebuild the report.')]);
+    return;
+  }
+
+  // ---------- Branding (validated before use) ----------
+  var root = document.documentElement;
+  var colorRe = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/;
+  function okColor(c) { return colorRe.test(str(c)); }
+  var bc = obj(branding.colors);
+  if (okColor(bc.accent)) root.style.setProperty('--accent', bc.accent);
+  if (okColor(bc.primary)) { root.style.setProperty('--sub', bc.primary); root.style.setProperty('--head', bc.primary); }
+  if (okColor(bc.band)) root.style.setProperty('--bandbg', bc.band);
+  var fontRe = /^[A-Za-z0-9 ,'"\-]{1,200}$/;
+  if (fontRe.test(str(branding.font_family))) root.style.setProperty('--f-body', branding.font_family);
+  if (fontRe.test(str(branding.heading_font_family))) root.style.setProperty('--f-display', branding.heading_font_family);
+  var logoOk = /^data:image\/(?:png|jpeg|gif|webp|svg\+xml);base64,[A-Za-z0-9+\/=]+$/.test(str(branding.logo_data_uri));
+
+  // ---------- Index the model ----------
+  var M = data.model, sys = obj(M.system);
+  var SYSTEM_KEYS = ['assets', 'actors', 'data', 'zones', 'boundaries', 'flows', 'entry_points', 'states', 'dependencies'];
+  var MODEL_KEYS = ['evidence', 'methods', 'threats', 'controls', 'requirements', 'risks', 'attack_trees', 'attack_paths', 'visualizations',
+    'coverage', 'conflicts', 'gaps', 'treatments', 'verification', 'decisions', 'changes', 'identity_map'];
+  var byId = new Map(), kindOf = new Map();
+  function index(list, kind) { arr(list).forEach(function (r) { if (r && r.id && !byId.has(r.id)) { byId.set(r.id, r); kindOf.set(r.id, kind); } }); }
+  SYSTEM_KEYS.forEach(function (k) { index(sys[k], k); });
+  MODEL_KEYS.forEach(function (k) { index(M[k], k); });
+  arr(M.attack_trees).forEach(function (t) { index(t.nodes, 'tree_nodes'); index(t.states, 'graph_states'); index(t.transitions, 'transitions'); });
+
+  var KIND_WORD = { threats: 'Threat', controls: 'Control', treatments: 'Recommendation', verification: 'Verification', gaps: 'Unknown', evidence: 'Evidence',
+    assets: 'Component', actors: 'Actor', data: 'Data', zones: 'Zone', boundaries: 'Trust boundary', flows: 'Flow', entry_points: 'Entry point',
+    risks: 'Risk', methods: 'Method', requirements: 'Requirement', decisions: 'Decision', dependencies: 'Dependency', states: 'State' };
+  function text(r) { return r ? str(r.objective || r.description || r.scenario || r.statement || r.outcome || r.approach || r.locator || r.method_id || r.rationale || r.reason) : ''; }
+  function label(id) { return trunc(text(byId.get(id)) || id, 120); }
+  function anchor(id) { return 'r-' + id; }
+  function ref(id) { return h('a', { href: '#' + anchor(id), class: 'ref k-' + (kindOf.get(id) || 'x'), 'data-ref': id, title: (KIND_WORD[kindOf.get(id)] ? KIND_WORD[kindOf.get(id)] + ': ' : '') + label(id) }, id); }
+  function refs(list) {
+    list = arr(list); if (!list.length) return h('span', { class: 'empty' }, '—');
+    var out = []; list.forEach(function (id, i) { if (i) out.push(' '); out.push(ref(id)); }); return h('span', null, out);
+  }
+  var TAGCLASS = { open: 'bad', failed: 'bad', unresolved: 'bad', skipped: 'bad', unavailable: 'bad', not_assessed: 'bad', evidenced_weakness: 'warn',
+    resolved: 'ok', closed: 'ok', passed: 'ok', tested: 'ok', implemented: 'ok', read: 'ok', assessed: 'ok', observed: 'ok', accepted: 'ok', completed: 'ok', supported: 'ok', verified: 'ok',
+    not_run: 'warn', proposed: 'warn', partial: 'warn', inconclusive: 'warn', unrated: 'warn', deferred: 'warn', conditional: 'warn', unverified: 'warn',
+    design_hypothesis: 'info', designed: 'info', proposed_design: 'info', high: 'info' };
+  var NICE = { evidenced_weakness: 'observed', design_hypothesis: 'design concern', not_run: 'outstanding', proposed_design: 'proposed design', claimed: 'reported' };
+  function nice(v) { return NICE[str(v)] || str(v).replace(/_/g, ' '); }
+  function tag(v, prefix) { if (v === null || v === undefined || v === '') return null; return h('span', { class: 'tag ' + (TAGCLASS[str(v)] || '') }, (prefix ? prefix + ' ' : '') + nice(v)); }
+  function list(items) { items = arr(items); if (!items.length) return h('span', { class: 'empty' }, '—'); return h('ul', { class: 'plain' }, items.map(function (t) { return h('li', null, str(t)); })); }
+  function fields(pairs) {
+    var dl = h('dl', { class: 'fields' });
+    pairs.forEach(function (p) { if (!p || p[1] === undefined) return; append(dl, [h('dt', null, p[0]), h('dd', null, p[1] === null || p[1] === '' ? h('span', { class: 'empty' }, '—') : p[1])]); });
+    return dl;
+  }
+  function empty(msg) { return h('p', { class: 'empty' }, msg); }
+  function revIndex(list, field) { var m = new Map(); arr(list).forEach(function (r) { arr(r[field]).forEach(function (id) { if (!m.has(id)) m.set(id, []); m.get(id).push(r); }); }); return m; }
+  var threats = arr(M.threats), controls = arr(M.controls), treatments = arr(M.treatments), verifs = arr(M.verification), gaps = arr(M.gaps), risks = arr(M.risks);
+  var controlsByThreat = revIndex(controls, 'threat_refs'), treatmentsByThreat = revIndex(treatments, 'threat_refs'), verifsByThreat = revIndex(verifs, 'threat_refs');
+  var verifsByControl = revIndex(verifs, 'control_refs'), risksByThreat = revIndex(risks, 'threat_refs'), decisionsBySubject = revIndex(M.decisions, 'subject_refs');
+  var threatsByAffected = revIndex(threats, 'affected_refs'), controlsByAffected = revIndex(controls, 'affected_refs');
+  function ids(rs) { return arr(rs).map(function (r) { return r.id; }); }
+  function countBy(rows, f) { var m = {}; rows.forEach(function (r) { var k = str(typeof f === 'function' ? f(r) : r[f]) || 'unknown'; m[k] = (m[k] || 0) + 1; }); return m; }
+  function breakdown(counts, order) {
+    var keys = Object.keys(counts); if (order) keys.sort(function (a, b) { var x = order.indexOf(a), y = order.indexOf(b); return (x < 0 ? 99 : x) - (y < 0 ? 99 : y); });
+    return keys.map(function (k) { return counts[k] + ' ' + nice(k); }).join(', ') || '—';
+  }
+
+  // ---------- Risk matrix and ratings ----------
+  var rm = eng.risk_matrix && typeof eng.risk_matrix === 'object' ? eng.risk_matrix : null;
+  var ratingDefs = rm ? arr(rm.ratings) : [];
+  function norm(v) { return str(v).trim().toLowerCase(); }
+  // Without a supplied matrix, common rating words still get a conventional colour and order.
+  var COMMON = [[/critical|extreme|severe|very high/, '#7a0019'], [/high|major/, '#d6401c'], [/medium|moderate/, '#e0a100'], [/low|minor/, '#2e8b57'], [/info|negligible|none/, '#5f5d68']];
+  function commonIdx(r) { for (var i = 0; i < COMMON.length; i++) if (COMMON[i][0].test(norm(r))) return i; return -1; }
+  function ratingColor(r) { var d = ratingDefs.filter(function (x) { return norm(x.label) === norm(r); })[0]; if (d && okColor(d.color)) return d.color; var i = commonIdx(r); return i >= 0 ? COMMON[i][1] : null; }
+  function ratingRank(r) { for (var i = 0; i < ratingDefs.length; i++) if (norm(ratingDefs[i].label) === norm(r)) return i; if (!ratingDefs.length && commonIdx(r) >= 0) return commonIdx(r); return ratingDefs.length || 9; }
+  function ratedRisk(t) { return arr(risksByThreat.get(t.id)).filter(function (r) { return r.status === 'rated'; })[0] || null; }
+  function ratingTag(t) {
+    var r = ratedRisk(t); if (!r) return h('span', { class: 'tag warn' }, 'unrated');
+    var el = h('span', { class: 'tag rating', title: r.rubric ? 'Rated with ' + r.rubric.name : null }, str(r.rating));
+    el.style.background = ratingColor(r.rating) || '#460073'; return el;
+  }
+  var anyRated = threats.some(ratedRisk);
+  var CONF = { high: 0, medium: 1, low: 2, unknown: 3 };
+  function threatOrder(a, b) {
+    var oa = a.status === 'open' ? 0 : 1, ob = b.status === 'open' ? 0 : 1; if (oa !== ob) return oa - ob;
+    if (anyRated) { var ra = ratedRisk(a), rb = ratedRisk(b), xa = ra ? ratingRank(ra.rating) : 98, xb = rb ? ratingRank(rb.rating) : 98; if (xa !== xb) return xa - xb; }
+    var ta = a.finding_type === 'evidenced_weakness' ? 0 : 1, tb = b.finding_type === 'evidenced_weakness' ? 0 : 1; if (ta !== tb) return ta - tb;
+    var ca = CONF[a.confidence] === undefined ? 4 : CONF[a.confidence], cb = CONF[b.confidence] === undefined ? 4 : CONF[b.confidence]; if (ca !== cb) return ca - cb;
+    return str(a.id).localeCompare(str(b.id), undefined, { numeric: true });
+  }
+  var ORDER_NOTE = anyRated ? 'Ordered by risk rating, then finding type and confidence.' : 'Issues observed in code come first, then design concerns, each by confidence. No risk ratings are recorded, so this is not a severity ranking.';
+  var sortedThreats = threats.slice().sort(threatOrder);
+  var openThreats = sortedThreats.filter(function (t) { return t.status === 'open'; });
+
+  // ---------- Framework mappings from method findings ----------
+  var FW_NAME = { 'stride-per-element': 'STRIDE', 'stride-per-interaction': 'STRIDE (per interaction)', 'attack-enrichment': 'MITRE ATT&CK', 'capec-enrichment': 'CAPEC',
+    'atlas-enrichment': 'MITRE ATLAS', 'cyber-kill-chain': 'Cyber Kill Chain', 'linddun-go': 'LINDDUN GO', 'linddun-pro': 'LINDDUN PRO', 'csa-maestro': 'CSA MAESTRO',
+    'cvss': 'CVSS', 'dread': 'DREAD', 'pasta': 'PASTA', 'elevation-of-privilege': 'Elevation of Privilege', 'nist-data-centric': 'NIST SP 800-154', 'trike': 'Trike', 'octave-allegro': 'OCTAVE Allegro' };
+  function fwName(mid) { return FW_NAME[mid] || mid; }
+  var fwOrder = [], fwMap = {}; // fwMap[methodId][threatId] = [facts]
+  arr(M.methods).forEach(function (m) {
+    arr(m.findings).forEach(function (f) {
+      arr(f.record_refs).forEach(function (rid) {
+        if (kindOf.get(rid) !== 'threats') return;
+        if (!fwMap[m.method_id]) { fwMap[m.method_id] = {}; fwOrder.push(m.method_id); }
+        (fwMap[m.method_id][rid] = fwMap[m.method_id][rid] || []).push(f);
+      });
+    });
+  });
+  function fwChip(f) {
+    var body = f.identifier ? [h('b', null, str(f.identifier)), ' ', str(f.value)] : (/categor|class|type|stage|phase|layer/i.test(str(f.name)) ? [str(f.value)] : [str(f.name) + ': ', h('b', null, str(f.value))]);
+    return h('span', { class: 'fw' + (f.status === 'unverified' ? ' unv' : ''), title: (f.source ? str(f.source) + (f.source_revision ? ' ' + f.source_revision : '') : str(f.name)) + (f.status === 'unverified' ? ' (unverified mapping)' : '') }, body);
+  }
+  function fwCell(mid, tid) { var fs = arr(fwMap[mid] && fwMap[mid][tid]); return fs.length ? fs.map(fwChip) : h('span', { class: 'empty' }, '—'); }
+
+  // ---------- Tables ----------
+  function table(cols, rows, opts) {
+    opts = opts || {};
+    var thead = h('thead', null, h('tr', null, cols.map(function (c, i) {
+      var th = h('th', { class: c.sort !== false ? 'sortable' : null, scope: 'col' }, c.title);
+      if (c.width) th.style.width = c.width;
+      if (c.sort !== false) th.addEventListener('click', function () { sortBy(i, th); });
+      return th;
+    })));
+    var tbody = h('tbody');
+    var trs = rows.map(function (r) { var tr = h('tr', { id: opts.anchor && r.id ? anchor(r.id) : null }); cols.forEach(function (c) { append(tr, [h('td', null, c.render(r))]); }); tr._row = r; return tr; });
+    append(tbody, trs);
+    var t = h('table', null, thead, tbody), wrap = h('div', { class: 'tw' }, t);
+    wrap._trs = trs;
+    function sortBy(i, th) {
+      var asc = !th.classList.contains('sort-asc');
+      Array.prototype.forEach.call(thead.querySelectorAll('th'), function (x) { x.classList.remove('sort-asc', 'sort-desc'); });
+      th.classList.add(asc ? 'sort-asc' : 'sort-desc');
+      var key = cols[i].value || function (r) { var d = h('div', null, cols[i].render(r)); return d.textContent; };
+      trs.slice().sort(function (a, b) {
+        var x = key(a._row), y = key(b._row);
+        if (typeof x === 'number' && typeof y === 'number') return asc ? x - y : y - x;
+        return asc ? str(x).localeCompare(str(y), undefined, { numeric: true }) : str(y).localeCompare(str(x), undefined, { numeric: true });
+      }).forEach(function (tr) { tbody.appendChild(tr); });
+    }
+    return wrap;
+  }
+  function idCol(title) { return { title: title || 'ID', width: '90px', value: function (r) { return r.id; }, render: function (r) { return h('span', { class: 'tid' }, r.id); } }; }
+  function col(title, f, width) { return { title: title, width: width, render: function (r) { var v = f(r); return typeof v === 'string' || typeof v === 'number' ? str(v) : v; } }; }
+  function refCol(title, f) { return { title: title, sort: false, render: function (r) { return refs(f(r)); } }; }
+  function searchBox(placeholder, onInput) { var inp = h('input', { type: 'search', placeholder: placeholder, 'aria-label': placeholder }); inp.addEventListener('input', function () { onInput(inp.value.trim().toLowerCase()); }); return inp; }
+  function searchable(wrap, noun) {
+    if (wrap._trs.length < 8) return wrap;
+    var count = h('span', { class: 'count' }, wrap._trs.length + ' ' + noun);
+    return h('div', null, h('div', { class: 'toolbar' }, searchBox('Search ' + noun + '…', function (q) {
+      var n = 0; wrap._trs.forEach(function (tr) { var hit = !q || tr.textContent.toLowerCase().indexOf(q) >= 0; tr.classList.toggle('hidden', !hit); if (hit) n++; });
+      count.textContent = n + ' of ' + wrap._trs.length + ' ' + noun;
+    }), count), wrap);
+  }
+  function selectOf(labelText, values) { return h('select', { 'aria-label': labelText }, h('option', { value: '' }, labelText), values.map(function (v) { return h('option', { value: v }, nice(v)); })); }
+  function fold(title, count, content, id) { return h('details', { class: 'fold', id: id || null }, h('summary', null, title, count !== null ? h('small', null, String(count)) : null), content); }
+  function lines(items, f) { items = arr(items); if (!items.length) return h('span', { class: 'empty' }, 'None recorded'); return items.map(function (x) { return h('span', { class: 'line' }, f(x)); }); }
+
+  // ---------- Tooltip ----------
+  var tipEl = h('div', { id: 'tip', class: 'hidden', role: 'tooltip' });
+  function tip(el, build) {
+    function show(ev) {
+      tipEl.textContent = ''; append(tipEl, build()); tipEl.classList.remove('hidden');
+      var r = el.getBoundingClientRect(), x = ev && ev.clientX ? ev.clientX + 14 : r.right + 8, y = ev && ev.clientY ? ev.clientY + 14 : r.bottom + 8;
+      var w = tipEl.offsetWidth, hh = tipEl.offsetHeight;
+      if (x + w > window.innerWidth - 8) x = Math.max(8, window.innerWidth - w - 8);
+      if (y + hh > window.innerHeight - 8) y = Math.max(8, (ev && ev.clientY ? ev.clientY : r.top) - hh - 12);
+      tipEl.style.left = x + 'px'; tipEl.style.top = y + 'px';
+    }
+    function hide() { tipEl.classList.add('hidden'); }
+    el.addEventListener('mouseenter', show); el.addEventListener('mousemove', show); el.addEventListener('mouseleave', hide);
+    el.addEventListener('focus', function () { show(null); }); el.addEventListener('blur', hide);
+  }
+  function go(id) { tipEl.classList.add('hidden'); if (location.hash === '#' + anchor(id)) openTarget(); else location.hash = anchor(id); }
+  function recordTip(id, extra) {
+    var r = byId.get(id), k = kindOf.get(id), bits = [];
+    if (r && k === 'threats') { var rr = ratedRisk(r); bits.push(rr ? str(rr.rating) + ' risk' : 'not yet rated', COV[coverage(r)][0].toLowerCase()); }
+    else if (r && k === 'verification') bits.push(nice(r.status), VTYPE[vtype(r)].toLowerCase());
+    else if (r && r.status) bits.push(nice(r.status));
+    var body = r && (k === 'threats' ? (str(meta(id).impact) || r.scenario) : (k === 'verification' ? 'Pass: ' + str(r.pass_criteria) : (k === 'controls' ? (r.limitations ? 'Limit: ' + str(r.limitations) : r.description) : (r.outcome || r.description))));
+    return [h('small', null, (KIND_WORD[k] || 'Record') + ' ' + id + (bits.length ? ' \u00b7 ' + bits.join(' \u00b7 ') : '')), h('b', null, nameOf(id)), body ? trunc(body, 260) : null, h('em', null, extra || 'Select to open the full entry')];
+  }
+
+  // ====================================================================
+  // Engagement annotations and derived views
+  // ====================================================================
+  var REC = obj(eng.records);
+  var CODE_ACCESS = str(eng.code_access) || (arr(M.evidence).some(function (e) { return e.source_kind === 'repository'; }) ? 'full' : 'none');
+  var ARTS = arr(eng.artefacts).filter(function (a) { return a && a.name; }), catalogued = ARTS.some(function (a) { return a.category; });
+  var CATWORD = { code: 'source code', configuration: 'configuration', design: 'design documentation', diagram: 'architecture diagram', vendor: 'vendor documentation', workshop: 'workshop', client: 'client statement', test: 'test result', other: 'other material' };
+  function artefactFor(e) {
+    var loc = str(e && e.locator), best = null;
+    ARTS.forEach(function (a) { [a.file, a.text_file].forEach(function (f) { f = str(f); if (f && (loc === f || loc.indexOf(f + ':') === 0 || loc.indexOf(f + '/') === 0 || loc.indexOf(f + '#') === 0) && (!best || f.length > best.len)) best = { a: a, len: f.length }; }); });
+    return best ? best.a : null;
+  }
+  function evCat(e) { var a = artefactFor(e); if (a && a.category) return str(a.category); return ({ repository: 'code', document: 'design', diagram: 'diagram', test_result: 'test', caller: 'client' })[e && e.source_kind] || 'other'; }
+  function basisOf(rec) { return uniq(arr(rec && rec.evidence_refs).map(function (id) { return byId.get(id); }).filter(Boolean).map(evCat)); }
+  function basisChips(rec) { var b = basisOf(rec); return b.length ? b.map(function (c) { return h('span', { class: 'fw' }, CATWORD[c] || c); }) : h('span', { class: 'empty' }, 'No direct evidence; inferred from the design'); }
+  var VAL = {}; arr(obj(eng.validation).items).forEach(function (i) { if (i && i.ref) VAL[i.ref] = i; });
+  var VALWORD = { confirmed: ['confirmed with client', 'ok'], corrected: ['corrected by client', 'info'], rejected: ['rejected by client', 'bad'], added: ['raised by client', 'info'], deferred: ['client to confirm', 'warn'], not_discussed: ['not discussed', ''] };
+  function valTag(id) { var v = VAL[id] && VALWORD[str(VAL[id].outcome)]; return v ? h('span', { class: 'tag ' + v[1], title: str(VAL[id].note) || null }, v[0]) : null; }
+  var RESPWORD = { client: 'client-run', vendor: 'vendor-run', shared: 'shared responsibility', unknown: 'responsibility unknown' };
+  function respOf(id) { var r = str(meta(id).responsibility); return RESPWORD[r] ? r : ''; }
+  function respTag(id) { var r = respOf(id); return r ? h('span', { class: 'tag ' + (r === 'vendor' ? 'info' : (r === 'unknown' ? 'warn' : '')) }, RESPWORD[r]) : null; }
+  function findingTag(t) {
+    if (t.finding_type !== 'evidenced_weakness') return h('span', { class: 'tag info' }, 'design concern');
+    var b = basisOf(t); return h('span', { class: 'tag warn' }, b.indexOf('code') >= 0 ? 'observed in code' : (b.indexOf('configuration') >= 0 ? 'observed in configuration' : 'observed'));
+  }
+  function meta(id) { return obj(REC[id]); }
+  function nameOf(id) { var m = meta(id); return str(m.title) || trunc(text(byId.get(id)) || id, 96); }
+  function titled(id) { return h('span', { class: 'tl' }, ref(id), ' ', nameOf(id)); }
+  function tba(textValue, fallback) { return str(textValue) ? str(textValue) : h('span', { class: 'empty' }, fallback || 'To be agreed'); }
+  function inkFor(hex) {
+    var c = str(hex).replace('#', ''); if (c.length === 3) c = c[0] + c[0] + c[1] + c[1] + c[2] + c[2];
+    var r = parseInt(c.slice(0, 2), 16), g = parseInt(c.slice(2, 4), 16), b = parseInt(c.slice(4, 6), 16);
+    return (0.299 * r + 0.587 * g + 0.114 * b) > 165 ? '#1a1a1a' : '#ffffff';
+  }
+  function ratingChip(labelText) {
+    var bg = ratingColor(labelText) || '#460073', el = h('span', { class: 'tag rating' }, str(labelText));
+    el.style.background = bg; el.style.color = inkFor(bg); return el;
+  }
+  function riskNow(t) { var r = ratedRisk(t); return r ? ratingChip(r.rating) : h('span', { class: 'tag warn', title: 'More information is needed before this threat can be rated' }, 'not yet rated'); }
+  function riskCell(t) {
+    var target = str(meta(t.id).target_rating);
+    return h('span', { class: 'riskcell' }, riskNow(t), target ? [h('span', { class: 'arrow', 'aria-label': 'target after treatment' }, ' → '), ratingChip(target)] : null);
+  }
+  function unratedReason(t) { var rr = arr(risksByThreat.get(t.id))[0]; return rr && rr.status !== 'rated' ? str(rr.rationale) : ''; }
+
+  // Control coverage: derived from the controls recorded against each threat, unless the reviewer sets it.
+  var COV = { none: ['No control in place', 'bad'], partial: ['Partly controlled', 'warn'], reported: ['Control reported, not verified', 'warn'], controlled: ['Controlled, not yet verified', 'info'], verified: ['Controlled and verified', 'ok'], closed: ['Closed', 'ok'] };
+  var COV_ORDER = ['none', 'partial', 'reported', 'controlled', 'verified', 'closed'];
+  function coverage(t) {
+    if (t.status !== 'open') return 'closed';
+    var set = str(meta(t.id).coverage); if (COV[set] && set !== 'closed') return set;
+    var real = arr(controlsByThreat.get(t.id)).filter(function (c) { return c.status === 'implemented' || c.status === 'tested'; });
+    if (!real.length) return arr(controlsByThreat.get(t.id)).some(function (c) { return c.status === 'claimed'; }) ? 'reported' : 'none';
+    if (t.finding_type === 'evidenced_weakness') return 'partial';
+    // 'Verified' needs a passed test of a control that was run against this threat, not just any tested control.
+    var proven = arr(verifsByThreat.get(t.id)).some(function (v) { return v.status === 'passed' && arr(v.control_refs).length; });
+    return proven ? 'verified' : 'controlled';
+  }
+  function covTag(t) { var c = COV[coverage(t)]; return h('span', { class: 'tag ' + c[1] }, c[0]); }
+  function covNote(t) {
+    var own = str(meta(t.id).coverage_note); if (own) return own;
+    var k = coverage(t), cs = arr(controlsByThreat.get(t.id));
+    if (k === 'none') return cs.length ? 'A control is designed but is not yet in place.' : 'No existing control addresses this threat.';
+    if (k === 'reported') { var rc = cs.filter(function (c) { return c.status === 'claimed'; }); return 'Relies on ' + joinList(rc.map(function (c) { return str(meta(c.id).title) || trunc(c.description, 70); })) + ', which ' + (rc.length === 1 ? 'was' : 'were') + ' described by the client or vendor but not observed or tested.'; }
+    if (k === 'partial') return 'A control is in place, but the weakness was observed despite it.';
+    if (k === 'controlled') return 'A control is in place. Whether it fully addresses this threat has not been tested.';
+    if (k === 'verified') return 'A control is in place and has passed testing.';
+    return 'This threat is closed.';
+  }
+  var covCounts = countBy(openThreats, coverage);
+
+  var RESP = { mitigate: 'Mitigate', eliminate: 'Eliminate', transfer: 'Transfer', accept: 'Accept', undecided: 'To be decided' };
+  function responseOf(t) {
+    var set = str(meta(t.id).response); if (RESP[set]) return { key: set, proposed: false };
+    return arr(treatmentsByThreat.get(t.id)).length ? { key: 'mitigate', proposed: true } : { key: 'undecided', proposed: false };
+  }
+  function responseTag(t) { var r = responseOf(t); return h('span', { class: 'tag ' + (r.key === 'undecided' ? 'warn' : (r.proposed ? 'info' : 'ok')) }, RESP[r.key] + (r.proposed ? ' (proposed)' : '')); }
+
+  var VTYPE = { confirm_weakness: 'Confirm the weakness', retest_fix: 'Confirm, then retest after the fix', test_control: 'Test an existing control', review_configuration: 'Review the configuration', vendor_assurance: 'Obtain vendor assurance', design_review: 'Review the design' };
+  function vtype(v) {
+    var set = str(meta(v.id).type); if (VTYPE[set]) return set;
+    var ts = arr(v.threat_refs).map(function (id) { return byId.get(id); }).filter(Boolean);
+    var comps = []; ts.forEach(function (t) { arr(t.affected_refs).forEach(function (c) { comps.push(c); }); });
+    arr(v.control_refs).forEach(function (cid) { arr(byId.get(cid) && byId.get(cid).affected_refs).forEach(function (c) { comps.push(c); }); });
+    var owned = comps.map(respOf).filter(Boolean);
+    if (owned.length && owned.every(function (r) { return r === 'vendor'; })) return 'vendor_assurance';
+    if (!ts.length) return 'test_control';
+    return ts.some(function (t) { return t.finding_type === 'evidenced_weakness'; }) ? 'retest_fix' : 'confirm_weakness';
+  }
+  var topRank = Math.min.apply(null, openThreats.filter(ratedRisk).map(function (t) { return ratingRank(ratedRisk(t).rating); }).concat([99]));
+  function prioNum(t) { var r = ratedRisk(t); return r ? ratingRank(r.rating) - topRank + 1 : null; }  // P1 is the highest rating present in this report
+  function isDone(rec) { return rec && (rec.status === 'passed' || rec.status === 'failed'); }
+  function prioOf(id) {
+    var rec = byId.get(id); if (kindOf.get(id) === 'verification' && isDone(rec)) return '';
+    var set = str(meta(id).priority); if (set) return set;
+    var linked = arr(rec && rec.threat_refs).slice();
+    arr(rec && rec.control_refs).forEach(function (cid) { var c = byId.get(cid); arr(c && c.threat_refs).forEach(function (tid) { linked.push(tid); }); });
+    var ns = linked.map(function (tid) { return byId.get(tid); }).filter(function (t) { return t && t.status === 'open'; }).map(prioNum).filter(Boolean);
+    return ns.length ? 'P' + Math.min.apply(null, ns) : '';
+  }
+  function prioSort(id) { var m = /(\d+)/.exec(prioOf(id)); return m ? +m[1] : 99; }
+  function prioTag(id) { var p = prioOf(id); if (kindOf.get(id) === 'verification' && isDone(byId.get(id))) return h('span', { class: 'empty' }, 'Done'); return p ? h('span', { class: 'prio p' + Math.min(prioSort(id), 4) }, p) : h('span', { class: 'empty', title: 'Addresses a threat that is not yet rated' }, 'Unranked'); }
+  var treatmentSeq = {}; sortedThreats.forEach(function (t, i) { arr(treatmentsByThreat.get(t.id)).forEach(function (x) { if (treatmentSeq[x.id] === undefined) treatmentSeq[x.id] = i; }); });
+  var verifSeq = {}; sortedThreats.forEach(function (t, i) { arr(verifsByThreat.get(t.id)).forEach(function (x) { if (verifSeq[x.id] === undefined) verifSeq[x.id] = i; }); });
+  function bySeq(seq) { return function (a, b) { return (isDone(a) ? 1 : 0) - (isDone(b) ? 1 : 0) || prioSort(a.id) - prioSort(b.id) || (seq[a.id] === undefined ? 999 : seq[a.id]) - (seq[b.id] === undefined ? 999 : seq[b.id]) || str(a.id).localeCompare(str(b.id), undefined, { numeric: true }); }; }
+  var sortedTreatments = treatments.slice().sort(bySeq(treatmentSeq)), sortedVerifs = verifs.slice().sort(bySeq(verifSeq));
+  var outstandingVerifs = verifs.filter(function (v) { return v.status === 'not_run' || v.status === 'inconclusive'; });
+  var anyPrio = treatments.concat(verifs).some(function (x) { return prioOf(x.id); });
+  function anyMeta(rows, key) { return rows.some(function (x) { return str(meta(x.id)[key]); }); }
+  var openGaps = gaps.filter(function (g) { return g.status === 'open'; });
+
+  // CSV export of the action plan. Cells are quoted and guarded against spreadsheet formulas.
+  function csvCell(v) { v = str(v).replace(/\r?\n/g, ' '); if (/^[=+\-@\t]/.test(v)) v = "'" + v; return '"' + v.replace(/"/g, '""') + '"'; }
+  function ratingText(t) { var r = ratedRisk(t); return r ? str(r.rating) : 'Not yet rated'; }
+  function linkedRating(rec) { var t = arr(rec.threat_refs).map(function (id) { return byId.get(id); }).filter(Boolean).sort(threatOrder)[0]; return t ? ratingText(t) : ''; }
+  function actionRows() {
+    var rows = [['Action type', 'ID', 'Action', 'Detail', 'Addresses', 'Priority', 'Risk now', 'Owner', 'Target date', 'Status']];
+    sortedTreatments.forEach(function (x) { var m = meta(x.id); rows.push(['Recommendation', x.id, nameOf(x.id), x.outcome, arr(x.threat_refs).join(' '), prioOf(x.id), linkedRating(x), m.owner, m.target_date, 'Proposed']); });
+    sortedVerifs.forEach(function (v) { var m = meta(v.id); rows.push(['Verification: ' + VTYPE[vtype(v)], v.id, nameOf(v.id), v.approach + ' Pass: ' + str(v.pass_criteria) + ' Fail: ' + str(v.fail_criteria), arr(v.threat_refs).concat(arr(v.control_refs)).join(' '), prioOf(v.id), linkedRating(v), m.owner, m.target_date, nice(v.status)]); });
+    openGaps.forEach(function (g) { var m = meta(g.id); rows.push(['Open question', g.id, g.description, 'Needed: ' + str(g.needed), arr(g.affected_refs).join(' '), '', '', m.owner, m.target_date, 'Open']); });
+    return rows;
+  }
+  function exportButton(labelText) {
+    var b = h('button', { type: 'button', class: 'btn noprint' }, labelText || 'Export action plan (CSV)');
+    b.addEventListener('click', function () {
+      var csv = '﻿' + actionRows().map(function (r) { return r.map(csvCell).join(','); }).join('\r\n');
+      var a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' })); a.download = 'threat-model-action-plan.csv';
+      document.body.appendChild(a); a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+    });
+    return b;
+  }
+
+  // What was reviewed
+  var inspection = arr(M.coverage).filter(function (c) { return c.lens === 'inspection-coverage' && c.target_ref === null; });
+  var processed = arr(data.processed_inputs), unprocessed = arr(data.unprocessed_inputs);
+  function repoRevisions() { return uniq(arr(M.evidence).filter(function (e) { return e.source_kind === 'repository' && e.source_revision; }).map(function (e) { return str(e.source_revision); })); }
+  function docSources() { return uniq(arr(M.evidence).filter(function (e) { return e.source_kind === 'document' || e.source_kind === 'diagram'; }).map(function (e) { return str(e.locator).replace(/:\d+(-\d+)?$/, ''); })); }
+  function plural(n, word, pluralWord) { return n + ' ' + (n === 1 ? word : (pluralWord || word + 's')); }
+  function artCount(cat) { return ARTS.filter(function (a) { return a.category === cat && str(a.reviewed) !== 'not_read'; }).length; }
+  function reviewedParts() {
+    if (!catalogued) return null;
+    var parts = [];
+    [['design', 'design document'], ['diagram', 'architecture diagram'], ['vendor', 'vendor document'], ['configuration', 'configuration export'], ['workshop', 'workshop record']].forEach(function (c) { if (artCount(c[0])) parts.push([artCount(c[0]), c[1]]); });
+    var repos = ARTS.filter(function (a) { return a.category === 'code' && str(a.reviewed) !== 'not_read'; });
+    if (repos.length) parts.push([repos.length, 'code repository', 'code repositories']);
+    return parts;
+  }
+  function joinList(xs) { return xs.length > 1 ? xs.slice(0, -1).join(', ') + ' and ' + xs[xs.length - 1] : xs.join(''); }
+  function reviewedLine() {
+    var parts = reviewedParts();
+    if (parts) {
+      var text = parts.length ? joinList(parts.map(function (p) { return plural(p[0], p[1], p[2]); })) : 'no registered material';
+      if (artCount('code') || CODE_ACCESS !== 'none') { var revs0 = repoRevisions(); text += (processed.length ? ' (' + plural(processed.length, 'file') + ' read' + (revs0.length ? ', revision ' + revs0.join(', ') : '') + ')' : ''); }
+      return text + (CODE_ACCESS === 'none' ? '. No source code was available' : '') + (unprocessed.length ? '. ' + plural(unprocessed.length, 'requested item') + (unprocessed.length === 1 ? ' was' : ' were') + ' not available or not reviewed' : '');
+    }
+    var revs = repoRevisions(), old = [plural(processed.length, 'source and configuration file') + (revs.length ? ' at revision ' + revs.join(', ') : '')];
+    if (docSources().length) old.push(plural(docSources().length, 'design document'));
+    if (arr(eng.workshops).length) old.push(plural(arr(eng.workshops).length, 'workshop'));
+    return old.join(', ') + (unprocessed.length ? '; ' + plural(unprocessed.length, 'area') + (unprocessed.length === 1 ? ' was' : ' were') + ' not reviewed' : '');
+  }
+  function limitations() { var own = paras(obj(eng.scope_and_approach).limitations); return own.length ? own : arr(M.scope && M.scope.limitations).map(str); }
+  function assumptions() {
+    var own = arr(eng.assumptions).filter(function (a) { return a && a.statement; });
+    return own.length ? own : arr(M.scope && M.scope.assumptions).map(function (a) { return { statement: str(a), refs: [], if_wrong: '' }; });
+  }
+  function assumptionsFor(id) { return assumptions().filter(function (a) { return arr(a.refs).indexOf(id) >= 0; }); }
+
+  // ====================================================================
+  // Sections
+  // ====================================================================
+  var NAV = [];
+  function section(id, num, titleText, lede, content, subs) {
+    NAV.push({ id: id, num: num, title: titleText, subs: subs || [] });
+    return h('section', { class: 'sec', id: id }, h('div', { class: 'shead' }, h('small', null, num), h('h2', null, titleText), lede ? h('p', null, lede) : null), content);
+  }
+
+  // ---------- Cover and document control ----------
+  var reportTitle = str(eng.title) || 'Threat model report';
+  var reportStatus = str(eng.report_status) || 'Draft for review';
+  var isFinal = /^(final|issued|approved)/i.test(reportStatus);
+  document.title = reportTitle + (branding.organisation ? ' — ' + branding.organisation : '');
+  function cover() {
+    var pairs = [['Client', eng.client || branding.prepared_for], ['Project', eng.project], ['Prepared by', arr(eng.authors).join(', ') || branding.prepared_by], ['Organisation', branding.organisation],
+      ['Report version', eng.report_version], ['Report date', eng.report_date || eng.generated_at], ['Status', obj(eng.options).pack === 'validation' ? 'Draft for validation' : reportStatus]].filter(function (p) { return p[1]; });
+    return h('header', { class: 'cover', id: 'top' }, h('p', { class: 'kick' }, obj(eng.options).pack === 'validation' ? 'Threat model: validation pack' : 'Threat model report', isFinal ? null : h('span', { class: 'draft' }, obj(eng.options).pack === 'validation' ? 'Draft for validation' : reportStatus)), h('h1', null, reportTitle), eng.subtitle ? h('p', { class: 'lede' }, str(eng.subtitle)) : null,
+      h('dl', null, pairs.map(function (p) { return h('div', null, h('dt', null, p[0]), h('dd', null, str(p[1]))); })));
+  }
+  function documentControl() {
+    var dc = obj(eng.document_control), versions = arr(dc.versions), reviewers = arr(dc.reviewers), dist = paras(dc.distribution);
+    if (!versions.length && !reviewers.length && !dist.length) return null;
+    return h('details', { class: 'fold doccontrol', id: 'doc-control' }, h('summary', null, 'Document control', h('small', null, reportStatus)),
+      versions.length ? [h('h4', null, 'Version history'), table([col('Version', function (v) { return h('span', { class: 'mono' }, str(v.version)); }, '110px'), col('Date', function (v) { return str(v.date); }, '130px'), col('Author', function (v) { return str(v.author); }), col('Change', function (v) { return str(v.change); })], versions)] : null,
+      reviewers.length ? [h('h4', null, 'Review and approval'), table([col('Name', function (v) { return str(v.name); }), col('Role', function (v) { return str(v.role); }), col('Responsibility', function (v) { return str(v.responsibility); }), col('Date', function (v) { return tba(v.date, 'Pending'); })], reviewers)] : null,
+      dist.length ? [h('h4', null, 'Distribution'), list(dist)] : null);
+  }
+
+  // ---------- 1 Executive summary ----------
+  function verdictCard(kicker, big, bigLabel, body, href, linkText) {
+    return h('div', { class: 'vcard' }, h('h4', null, kicker), h('div', { class: 'vbig' }, h('b', null, String(big)), h('span', null, bigLabel)), h('p', null, body), h('a', { href: href }, linkText));
+  }
+  function execSummary() {
+    var es = obj(eng.executive_summary), verdicts = obj(es.verdicts), out = [];
+    var overview = paras(es.system_overview), authored = overview.length > 0;
+    (authored ? overview : paras(M.scope && M.scope.description)).forEach(function (p) { out.push(h('p', { class: 'lead' }, p)); });
+    if (!authored) out.push(h('p', { class: 'note' }, 'No summary narrative was supplied for this report; the text above is the recorded scope description.'));
+
+    var nOpen = openThreats.length, observed = openThreats.filter(function (t) { return t.finding_type === 'evidenced_weakness'; }).length, unrated = openThreats.filter(function (t) { return !ratedRisk(t); }).length;
+    var ratingBits = anyRated ? breakdown(countBy(openThreats.filter(ratedRisk), function (t) { return str(ratedRisk(t).rating); }), ratingDefs.map(function (d) { return str(d.label); })) : '';
+    var validated = openThreats.filter(function (t) { return VAL[t.id] && (VAL[t.id].outcome === 'confirmed' || VAL[t.id].outcome === 'corrected'); }).length;
+    var threatsText = str(verdicts.threats) || ((anyRated ? 'Rated ' + ratingBits + (unrated ? ', with ' + unrated + ' not yet rated' : '') + '. ' : '') +
+      (observed ? observed + ' of ' + nOpen + ' ' + (observed === 1 ? 'was' : 'were') + ' observed in the ' + (CODE_ACCESS === 'none' ? 'configuration' : 'code') + ' reviewed; the rest are design concerns to confirm.' : (nOpen ? 'All are design concerns drawn from the documentation and workshops; none has been tested.' : '')) +
+      (validated ? ' ' + validated + ' ' + (validated === 1 ? 'was' : 'were') + ' confirmed with the client.' : ''));
+    var weak = (covCounts.none || 0) + (covCounts.partial || 0) + (covCounts.reported || 0), tested = controls.filter(function (c) { return c.status === 'tested'; }).length;
+    var nRep = covCounts.reported || 0, inPlace = controls.filter(function (c) { return c.status === 'implemented' || c.status === 'tested'; }).length, reportedC = controls.filter(function (c) { return c.status === 'claimed'; }).length;
+    var controlsText = str(verdicts.controls) || (plural(controls.length, 'control') + ' identified' + (inPlace ? ': ' + inPlace + ' observed in place (' + tested + ' tested)' + (reportedC ? ', ' + reportedC + ' reported by the client or vendor but not verified' : '') : (reportedC ? ', all reported by the client or vendor; none was observed or tested' : '')) + '. ' +
+      (covCounts.none || 0) + ' ' + ((covCounts.none || 0) === 1 ? 'threat has' : 'threats have') + ' no control, ' + (covCounts.partial || 0) + ' ' + ((covCounts.partial || 0) === 1 ? 'is' : 'are') + ' only partly controlled' + (nRep ? ' and ' + nRep + ' ' + (nRep === 1 ? 'relies' : 'rely') + ' on a control that is reported but unverified' : '') + '.');
+    var nActions = treatments.length + outstandingVerifs.length + openGaps.length;
+    var actionsText = str(verdicts.actions) || ('Decide on ' + plural(treatments.length, 'recommendation') + ', run ' + plural(outstandingVerifs.length, 'verification test') + ' and answer ' + plural(openGaps.length, 'open question') + '.');
+    out.push(h('div', { class: 'verdicts' },
+      verdictCard('Current threats', nOpen, 'open ' + (nOpen === 1 ? 'threat' : 'threats'), threatsText, '#threats', 'See the threats'),
+      verdictCard('Controls in place', weak + ' of ' + nOpen, 'open threats lack a control we could confirm', controlsText, '#controls', 'See control coverage'),
+      verdictCard('What you need to do', nActions, nActions === 1 ? 'action' : 'actions', actionsText, '#recs', 'See the recommendations')));
+
+    out.push(h('h3', { id: 'exec-glance' }, 'Threats at a glance'));
+    out.push(h('p', { class: 'intro' }, (anyRated ? 'Ordered by risk rating. ' : '') + 'Each row shows the risk today, whether an existing control covers it, and what needs to happen next.' + (anyMeta(threats, 'target_rating') ? ' Where two ratings are shown, the second is the target once the recommendation is in place.' : '')));
+    out.push(openThreats.length ? table([
+      { title: 'Threat', width: '27%', sort: false, render: function (t) { return h('span', null, h('b', null, nameOf(t.id)), ' ', ref(t.id), str(meta(t.id).impact) ? h('span', { class: 'line note' }, str(meta(t.id).impact)) : null); } },
+      { title: 'Risk', width: '13%', sort: false, render: function (t) { return h('span', null, riskCell(t), !ratedRisk(t) && unratedReason(t) ? h('span', { class: 'line note' }, unratedReason(t)) : null); } },
+      { title: 'Control today', width: '24%', sort: false, render: function (t) { return h('span', null, covTag(t), h('span', { class: 'line' }, covNote(t))); } },
+      { title: 'What you need to do', width: '36%', sort: false, render: function (t) {
+        var trs = arr(treatmentsByThreat.get(t.id)), vs = arr(verifsByThreat.get(t.id)).filter(function (v) { return v.status === 'not_run' || v.status === 'inconclusive'; }), gs = arr(t.gap_refs).map(function (id) { return byId.get(id); }).filter(function (g) { return g && g.status === 'open'; });
+        var bits = [];
+        trs.forEach(function (x) { bits.push(h('span', { class: 'line' }, h('span', { class: 'do' }, 'Fix'), ' ', nameOf(x.id), ' ', ref(x.id))); });
+        vs.forEach(function (v) { bits.push(h('span', { class: 'line' }, h('span', { class: 'do' }, 'Verify'), ' ', nameOf(v.id), ' ', ref(v.id))); });
+        gs.forEach(function (g) { bits.push(h('span', { class: 'line' }, h('span', { class: 'do' }, 'Answer'), ' ', trunc(g.needed || g.description, 110), ' ', ref(g.id))); });
+        return bits.length ? bits : h('span', { class: 'empty' }, 'No action recorded');
+      } }], openThreats) : empty('No open threats were recorded.'));
+
+    var comps = arr(es.key_components).filter(function (c) { return c && (c.name || c.ref); }), derivedC = !comps.length;
+    if (derivedC) {
+      var counts = []; threatsByAffected.forEach(function (ts, id) { var n = ts.filter(function (t) { return t.status === 'open'; }).length; if (n && ['assets', 'actors', 'entry_points'].indexOf(kindOf.get(id)) >= 0) counts.push([id, n]); });
+      counts.sort(function (a, b) { return b[1] - a[1] || str(a[0]).localeCompare(str(b[0])); });
+      comps = counts.slice(0, 5).map(function (c) { return { ref: c[0], name: label(c[0]), why: plural(c[1], 'open threat') + ' recorded against this component.' }; });
+    }
+    var steps = arr(es.next_steps).filter(function (x) { return x && x.step; }), derivedS = !steps.length;
+    if (derivedS) sortedTreatments.slice(0, 5).forEach(function (x) { steps.push({ step: x.outcome, refs: [x.id].concat(arr(x.threat_refs)) }); });
+    out.push(h('div', { class: 'two' },
+      h('div', null, h('h4', null, 'Key components'), comps.length ? h('ul', { class: 'klist' }, comps.map(function (c) {
+        var n = c.ref ? arr(threatsByAffected.get(c.ref)).filter(function (t) { return t.status === 'open'; }).length : 0;
+        return h('li', null, h('b', null, str(c.name || label(c.ref))), ' ', c.ref ? ref(c.ref) : null, n ? [' ', h('span', { class: 'tag bad' }, plural(n, 'open threat'))] : null, c.why ? h('p', null, str(c.why)) : null);
+      })) : empty('No components recorded.'), derivedC && comps.length ? h('p', { class: 'note' }, 'Listed automatically: the components with the most open threats.') : null),
+      h('div', null, h('h4', null, 'Key next steps'), steps.length ? h('ol', { class: 'steps' }, steps.map(function (x) { return h('li', null, str(x.step), arr(x.refs).length ? h('span', { class: 'refs' }, refs(x.refs)) : null); })) : empty('No recommendations recorded.'),
+        derivedS && steps.length ? h('p', { class: 'note' }, 'Listed automatically: the highest-priority recommendations.') : null, h('p', null, exportButton()))));
+
+    out.push(h('div', { class: 'basis' }, h('h4', null, 'Basis of this assessment'), h('ul', null,
+      h('li', null, 'Reviewed: ' + reviewedLine() + '.'),
+      limitations().slice(0, 3).map(function (l) { return h('li', null, l); }),
+      h('li', null, (CODE_ACCESS === 'none' ? 'No source code or running system was examined, so controls are as described by the client or vendor unless marked as observed. ' : 'A threat model identifies what could go wrong from the design and code as reviewed; it is not a penetration test. ') + 'Verification activities are outstanding unless marked otherwise, and recommendations are proposals for the system owner to decide on. ',
+        h('a', { href: '#scope' }, 'Scope, approach and limitations'), '.')),
+      branding.disclaimer ? h('p', { class: 'note' }, str(branding.disclaimer)) : null));
+    return section('exec', '1', 'Executive summary', null, out, [['exec-glance', 'Threats at a glance']]);
+  }
+
+  // ---------- 2 Technical summary ----------
+  var STORE_RE = /store|database|\bdb\b|bucket|queue|cache|storage|table|topic|vault|repository/i, EXT_RE = /external|third|partner|customer|vendor|supplier|saas/i;
+  var worstCov = function (id) { var ks = arr(threatsByAffected.get(id)).filter(function (t) { return t.status === 'open'; }).map(coverage); for (var i = 0; i < COV_ORDER.length; i++) if (ks.indexOf(COV_ORDER[i]) >= 0) return COV_ORDER[i]; return ''; };
+  function nodeMarkers(id) {
+    var ts = arr(threatsByAffected.get(id)).slice().sort(threatOrder), cs = arr(controlsByAffected.get(id)), vset = [];
+    ts.forEach(function (t) { arr(verifsByThreat.get(t.id)).forEach(function (v) { vset.push(v.id); }); });
+    cs.forEach(function (c) { arr(verifsByControl.get(c.id)).forEach(function (v) { vset.push(v.id); }); });
+    return { t: ids(ts), c: ids(cs), v: uniq(vset) };
+  }
+  function diagram() {
+    var flows = arr(sys.flows);
+    if (!flows.length) return empty('No data flows were recorded, so no architecture diagram can be drawn.');
+    var nodes = new Map();
+    function addNode(id) { if (!id) id = '__unknown__'; if (!nodes.has(id)) nodes.set(id, { id: id, kind: id === '__unknown__' ? 'unknown' : (kindOf.get(id) || 'unknown'), out: [], inn: [] }); return nodes.get(id); }
+    flows.forEach(function (f) { var a = addNode(f.source_ref), b = addNode(f.target_ref); a.out.push(f); b.inn.push(f); });
+    if (nodes.size > 80) return h('p', { class: 'basis' }, 'The system has ' + nodes.size + ' flow endpoints, too many to draw legibly. Use the component and flow inventory below.');
+    var W = 224, GX = 76, GY = 24, PAD = 18, CH = 17, RP = 14, RH = 26, GR = 96;
+    function chipW(id) { return 24 + Math.min(str(id).length, 12) * 6.6; }
+    nodes.forEach(function (n) {
+      var mk = nodeMarkers(n.id);
+      n.chips = mk.t.map(function (x) { return ['t', x]; }).concat(mk.c.map(function (x) { return ['c', x]; }), mk.v.map(function (x) { return ['v', x]; }));
+      var x = 10, row = 0; n.chips.forEach(function (c) { var w = chipW(c[1]); if (x + w > W - 8) { x = 10; row++; } c.push(x, row, w); x += w + 5; });
+      n.h = 50 + (n.chips.length ? (row + 1) * (CH + 5) + 4 : 0);
+    });
+    // Flow order from the actors gives each element a depth.
+    var depth = new Map(), queue = [];
+    nodes.forEach(function (n) { if (n.kind === 'actors' || n.inn.length === 0) { depth.set(n.id, 0); queue.push(n.id); } });
+    if (!queue.length) { var first = nodes.keys().next().value; depth.set(first, 0); queue.push(first); }
+    while (queue.length) { var qid = queue.shift(), d = depth.get(qid); nodes.get(qid).out.forEach(function (f) { var t = f.target_ref || '__unknown__'; if (!depth.has(t) && d < 14) { depth.set(t, d + 1); queue.push(t); } }); }
+    var maxD = 0; depth.forEach(function (v) { if (v > maxD) maxD = v; });
+    nodes.forEach(function (n) { if (!depth.has(n.id)) depth.set(n.id, maxD + 1); });
+
+    // Trust zones: elements joined by flows that cross no boundary share a zone.
+    var parent = new Map(); nodes.forEach(function (n) { parent.set(n.id, n.id); });
+    function find(x) { while (parent.get(x) !== x) { parent.set(x, parent.get(parent.get(x))); x = parent.get(x); } return x; }
+    flows.forEach(function (f) { if (!arr(f.boundary_refs).length) parent.set(find(f.source_ref || '__unknown__'), find(f.target_ref || '__unknown__')); });
+    var zoneIds = ids(sys.zones), regionZone = new Map();
+    nodes.forEach(function (n) {  // direct membership recorded on the element or the zone
+      var rec = byId.get(n.id), z = arr(rec && rec.related_refs).filter(function (r) { return zoneIds.indexOf(r) >= 0; })[0];
+      if (!z) arr(sys.zones).forEach(function (zn) { if (arr(zn.related_refs).indexOf(n.id) >= 0) z = zn.id; });
+      if (z && !regionZone.has(find(n.id))) regionZone.set(find(n.id), z);
+    });
+    function zoneSides(f) { var out = []; arr(f.boundary_refs).forEach(function (bid) { var b = byId.get(bid), zs = arr(b && b.side_refs).filter(function (r) { return zoneIds.indexOf(r) >= 0; }); if (zs.length === 2) out.push(zs); }); return out.length === 1 ? out[0] : null; }
+    for (var pass = 0; pass < 6; pass++) flows.forEach(function (f) {
+      var zs = zoneSides(f); if (!zs) return;
+      var ra = find(f.source_ref || '__unknown__'), rb = find(f.target_ref || '__unknown__'), za = regionZone.get(ra), zb = regionZone.get(rb);
+      if (za && !zb && zs.indexOf(za) >= 0) regionZone.set(rb, zs[1 - zs.indexOf(za)]);
+      else if (zb && !za && zs.indexOf(zb) >= 0) regionZone.set(ra, zs[1 - zs.indexOf(zb)]);
+      else if (!za && !zb && pass === 0) {  // start from the side that holds actors or external parties
+        var extZone = zs.filter(function (z) { return /internet|public|external|customer|partner|third|untrusted|user/i.test(str(byId.get(z).kind) + ' ' + str(byId.get(z).description)); });
+        var aExt = nodes.get(f.source_ref || '__unknown__').kind === 'actors', bExt = nodes.get(f.target_ref || '__unknown__').kind === 'actors';
+        if (extZone.length === 1 && aExt !== bExt) { regionZone.set(aExt ? ra : rb, extZone[0]); regionZone.set(aExt ? rb : ra, zs[1 - zs.indexOf(extZone[0])]); }
+      }
+    });
+    var regions = new Map();
+    nodes.forEach(function (n) { var r = find(n.id), key = regionZone.get(r) ? 'z:' + regionZone.get(r) : 'r:' + r; if (!regions.has(key)) regions.set(key, { key: key, zone: regionZone.get(r) || null, nodes: [] }); regions.get(key).nodes.push(n); n.region = regions.get(key); });
+    var regionList = Array.from(regions.values());
+    // Inside a zone, columns follow the flows that stay within it; long columns wrap.
+    var MAXROWS = 4;
+    regionList.forEach(function (r) {
+      var mine = {}; r.nodes.forEach(function (n) { mine[n.id] = 1; });
+      var local = new Map(), q = [];
+      r.nodes.forEach(function (n) { var hasIn = n.inn.some(function (f) { return mine[f.source_ref || '__unknown__'] && (f.source_ref || '__unknown__') !== n.id; }); if (!hasIn) { local.set(n.id, 0); q.push(n.id); } });
+      if (!q.length) { local.set(r.nodes[0].id, 0); q.push(r.nodes[0].id); }
+      while (q.length) { var id = q.shift(), dd = local.get(id); nodes.get(id).out.forEach(function (f) { var tg = f.target_ref || '__unknown__'; if (mine[tg] && !local.has(tg) && dd < 12) { local.set(tg, dd + 1); q.push(tg); } }); }
+      var byCol = {}; r.nodes.forEach(function (n) { var c = local.has(n.id) ? local.get(n.id) : 0; (byCol[c] = byCol[c] || []).push(n); });
+      r.cols = [];
+      Object.keys(byCol).map(Number).sort(function (x, y) { return x - y; }).forEach(function (k) {
+        var col = byCol[k].sort(function (x, y) { return (x.kind === 'actors' ? 0 : 1) - (y.kind === 'actors' ? 0 : 1) || str(x.id).localeCompare(str(y.id), undefined, { numeric: true }); });
+        for (var i = 0; i < col.length; i += MAXROWS) r.cols.push(col.slice(i, i + MAXROWS));
+      });
+      r.colH = r.cols.map(function (c) { return c.reduce(function (sum, n) { return sum + n.h; }, 0) + (c.length - 1) * GY; });
+      r.w = r.cols.length * W + (r.cols.length - 1) * GX + RP * 2; r.h = Math.max.apply(null, r.colH) + RP * 2 + RH;
+      r.avgD = r.nodes.reduce(function (sum, n) { return sum + depth.get(n.id); }, 0) / r.nodes.length;
+      r.hasActor = r.nodes.some(function (n) { return n.kind === 'actors'; });
+    });
+    // Order the zones left to right so that flows between zones are short and mostly run forwards.
+    var links = {}; flows.forEach(function (f) { var ra = nodes.get(f.source_ref || '__unknown__').region, rb = nodes.get(f.target_ref || '__unknown__').region; if (ra !== rb) { var k = regionList.indexOf(ra) + '>' + regionList.indexOf(rb); links[k] = (links[k] || 0) + 1; } });
+    var order = regionList.map(function (r, i) { return i; }).sort(function (x, y) { return regionList[x].avgD - regionList[y].avgD; });
+    if (regionList.length > 1 && regionList.length <= 7) {
+      var best = null, bestCost = Infinity;
+      (function permute(rest, acc) {
+        if (!rest.length) {
+          var pos = {}; acc.forEach(function (ri, i) { pos[ri] = i; });
+          var cost = 0; Object.keys(links).forEach(function (k) { var ab = k.split('>'), d = pos[ab[1]] - pos[ab[0]]; cost += links[k] * (d > 0 ? d : -d * 1.5); });
+          acc.forEach(function (ri, i) { if (regionList[ri].hasActor) cost += i * 0.01; cost += i * regionList[ri].avgD * -0.001; });
+          if (cost < bestCost - 1e-9) { bestCost = cost; best = acc.slice(); }
+          return;
+        }
+        rest.forEach(function (ri, i) { permute(rest.slice(0, i).concat(rest.slice(i + 1)), acc.concat([ri])); });
+      })(order, []);
+      if (best) order = best;
+    }
+    var maxH = Math.max.apply(null, regionList.map(function (r) { return r.h; })), x0 = PAD;
+    order.forEach(function (ri) {
+      var r = regionList[ri]; r.x = x0; r.y = PAD + (maxH - r.h) / 2; var innerH = r.h - RP * 2 - RH;
+      r.cols.forEach(function (c, ci) { var ny = r.y + RH + RP + (innerH - r.colH[ci]) / 2; c.forEach(function (n) { n.x = r.x + RP + ci * (W + GX); n.y = ny; ny += n.h + GY; }); });
+      x0 += r.w + GR;
+    });
+    var width = x0 - GR + PAD + 50, height = PAD * 2 + maxH + 50;
+    var svg = s('svg', { xmlns: SVGNS, width: width, height: height, viewBox: '0 0 ' + width + ' ' + height, role: 'img', 'aria-label': 'Architecture diagram with trust zones, threats, controls and verification' });
+    svg.style.height = 'auto';
+    append(svg, [s('defs', null,
+      s('marker', { id: 'arr', viewBox: '0 0 10 10', refX: '9', refY: '5', markerWidth: '7', markerHeight: '7', orient: 'auto-start-reverse' }, s('path', { d: 'M0,0 L10,5 L0,10 z', fill: '#8b8992' })),
+      s('marker', { id: 'arrx', viewBox: '0 0 10 10', refX: '9', refY: '5', markerWidth: '7', markerHeight: '7', orient: 'auto-start-reverse' }, s('path', { d: 'M0,0 L10,5 L0,10 z', fill: '#e0541b' })))]);
+    var multiZone = regionList.length > 1;
+    if (multiZone) regionList.forEach(function (r) {
+      var z = r.zone && byId.get(r.zone);
+      append(svg, [s('g', { class: 'zone' }, s('rect', { x: r.x, y: r.y, width: r.w, height: r.h, rx: 6 }), s('text', { x: r.x + 12, y: r.y + 18 }, trunc(z ? str(z.description) : 'Trust zone', Math.max(14, Math.floor(r.w / 7.2)))))]);
+    });
+    function chip(c, x, y) {
+      var id = c[1], rec = byId.get(id), w = c[4] !== undefined ? c[4] : chipW(id), kind = c[0], fill, ink, glyph, hollow = false;
+      if (kind === 't') { var rr = rec && ratedRisk(rec); fill = rr ? (ratingColor(rr.rating) || '#e0541b') : '#4a4852'; glyph = '▲'; }
+      else if (kind === 'c') { hollow = !(rec && (rec.status === 'implemented' || rec.status === 'tested')); fill = '#00705c'; glyph = '■'; }
+      else { fill = rec && rec.status === 'passed' ? '#00705c' : (rec && rec.status === 'failed' ? '#b3261e' : '#9a5200'); glyph = '●'; }
+      ink = hollow ? fill : inkFor(fill);
+      var box = s('rect', { width: w, height: CH, rx: kind === 'v' ? 8 : 2 }), txt = s('text', { x: w / 2, y: 12.5, 'text-anchor': 'middle' }, glyph + ' ' + trunc(id, 12));
+      box.style.fill = hollow ? 'transparent' : fill; if (hollow) { box.style.stroke = fill; box.style.strokeDasharray = '3 2'; } txt.style.fill = ink;
+      var g = s('g', { class: 'chip chip-' + kind, transform: 'translate(' + x + ',' + y + ')', tabindex: '0', role: 'link', 'aria-label': (KIND_WORD[kindOf.get(id)] || '') + ' ' + id + ': ' + nameOf(id) }, box, txt);
+      tip(g, function () { return recordTip(id); });
+      g.addEventListener('click', function (ev) { ev.stopPropagation(); go(id); });
+      g.addEventListener('keydown', function (ev) { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); ev.stopPropagation(); go(id); } });
+      return g;
+    }
+    var edgeEls = [], nodeEls = new Map(), pair = {}, labels = [], bottom = PAD + maxH;
+    flows.forEach(function (f) {
+      var a = nodes.get(f.source_ref || '__unknown__'), b = nodes.get(f.target_ref || '__unknown__');
+      var key = a.id + '>' + b.id; pair[key] = (pair[key] || 0) + 1; var bend = (pair[key] - 1) * 16;
+      var x1, y1, x2, y2, dpath, lx, ly;
+      if (a === b) { x1 = a.x + W - 30; y1 = a.y; dpath = 'M' + x1 + ',' + y1 + ' C' + (x1 + 20) + ',' + (y1 - 46) + ' ' + (x1 + 70) + ',' + (y1 - 10) + ' ' + (a.x + W) + ',' + (a.y + 20); lx = x1 + 40; ly = y1 - 26; }
+      else if (b.x > a.x + 1) { x1 = a.x + W; y1 = a.y + Math.min(a.h / 2, 40) + bend; x2 = b.x; y2 = b.y + Math.min(b.h / 2, 40) + bend; var mx = (x1 + x2) / 2; dpath = 'M' + x1 + ',' + y1 + ' C' + mx + ',' + y1 + ' ' + mx + ',' + y2 + ' ' + x2 + ',' + y2; lx = x1 + (x2 - x1) * 0.5; ly = y1 + (y2 - y1) * 0.5; }
+      else if (Math.abs(b.x - a.x) <= 1) { x1 = a.x + W; y1 = a.y + a.h / 2; x2 = b.x + W; y2 = b.y + b.h / 2; var bulge = x1 + 40 + Math.abs(y2 - y1) / 7 + bend; dpath = 'M' + x1 + ',' + y1 + ' C' + bulge + ',' + y1 + ' ' + bulge + ',' + y2 + ' ' + x2 + ',' + y2; lx = x1 + 32 + Math.abs(y2 - y1) / 9 + bend; ly = (y1 + y2) / 2; }
+      else { x1 = a.x; y1 = a.y + Math.min(a.h / 2, 40) + 12 + bend; x2 = b.x + W; y2 = b.y + Math.min(b.h / 2, 40) + 12 + bend; var mx2 = (x1 + x2) / 2; dpath = 'M' + x1 + ',' + y1 + ' C' + mx2 + ',' + y1 + ' ' + mx2 + ',' + y2 + ' ' + x2 + ',' + y2; lx = x1 + (x2 - x1) * 0.5; ly = y1 + (y2 - y1) * 0.5; }
+      for (var tries = 0, hit = true; hit && tries < 10; tries++) { hit = false; labels.forEach(function (p) { if (Math.abs(p[0] - lx) < 84 && Math.abs(p[1] - ly) < 23) { ly = p[1] + 24; hit = true; } }); } labels.push([lx, ly]);
+      var crosses = arr(f.boundary_refs), txt = trunc(f.id, 10), tw = 14 + txt.length * 6.1;
+      var fts = uniq(ids(threatsByAffected.get(f.id)).concat.apply(ids(threatsByAffected.get(f.id)), crosses.map(function (bid) { return ids(threatsByAffected.get(bid)); })));
+      var el = s('g', { class: 'el', transform: 'translate(' + (lx - tw / 2) + ',' + (ly - 9) + ')', tabindex: '0', role: 'link', 'aria-label': 'Flow ' + f.id + ': ' + str(f.description) },
+        s('rect', { width: tw, height: 18, rx: 9 }), s('text', { x: tw / 2, y: 12.5, 'text-anchor': 'middle' }, txt));
+      tip(el, function () { return [h('small', null, 'Data flow ' + f.id + (crosses.length ? ' · crosses a trust boundary' : '')), h('b', null, str(f.description)),
+        arr(f.data_refs).length ? 'Data: ' + arr(f.data_refs).map(label).join('; ') + '. ' : null, crosses.length ? 'Boundary: ' + crosses.map(label).join('; ') + '.' : null, h('em', null, 'Select to open the flow inventory')]; });
+      el.addEventListener('click', function (ev) { ev.stopPropagation(); go(f.id); });
+      el.addEventListener('keydown', function (ev) { if (ev.key === 'Enter') { ev.stopPropagation(); go(f.id); } });
+      var cx = lx - (fts.length * 60 - 5) / 2;
+      var g = s('g', { class: 'edge' + (crosses.length ? ' x' : '') }, s('path', { d: dpath, 'marker-end': crosses.length ? 'url(#arrx)' : 'url(#arr)' }), el,
+        fts.map(function (tid, i) { return chip(['t', tid], cx + i * 60, ly + 12); }));
+      if (fts.length) labels.push([lx, ly + 22]);
+      g._a = a.id; g._b = b.id; edgeEls.push(g); append(svg, [g]);
+    });
+    var info = h('div', { class: 'diainfo noprint' });
+    var HINT = 'Hover over a marker to see what it is; select it to open that entry. Select a component to highlight its connections.';
+    info.textContent = HINT;
+    nodes.forEach(function (n) {
+      var rec = byId.get(n.id), unknown = n.kind === 'unknown', name = unknown ? 'Destination not traced' : str(rec && rec.description) || n.id;
+      var store = rec && STORE_RE.test(str(rec.kind)), ext = rec && n.kind === 'assets' && (respOf(n.id) === 'vendor' || (!respOf(n.id) && EXT_RE.test(str(rec.kind)))), wc = worstCov(n.id), actor = n.kind === 'actors';
+      var g = s('g', { class: 'node n-' + (ext ? 'ext' : n.kind) + (store ? ' n-store' : '') + (wc ? ' cov-' + wc : ''), transform: 'translate(' + n.x + ',' + n.y + ')', tabindex: '0', 'aria-label': name },
+        s('rect', { class: 'b', width: W, height: n.h, rx: actor ? 24 : 2 }),
+        store ? [s('line', { class: 'sl', x1: 0, y1: 0.5, x2: W, y2: 0.5 }), s('line', { class: 'sl', x1: 0, y1: n.h - 0.5, x2: W, y2: n.h - 0.5 })] : null,
+        actor || unknown || store ? null : s('rect', { class: 'bar', width: W, height: 4 }),
+        s('text', { class: 'nid', x: actor ? 18 : 10, y: 20 }, unknown ? '?' : trunc(n.id, 18)),
+        s('text', { class: 'nk' + (respOf(n.id) === 'vendor' ? ' vend' : ''), x: W - (actor ? 18 : 10), y: 20, 'text-anchor': 'end' }, unknown ? 'open question' : (respOf(n.id) && respOf(n.id) !== 'client' ? trunc(RESPWORD[respOf(n.id)], 22) : trunc(str(rec && rec.kind), 22))),
+        s('text', { class: 'nn', x: actor ? 18 : 10, y: 39 }, trunc(name, 31)),
+        n.chips.map(function (c) { return chip(c, c[2], 48 + c[3] * (CH + 5)); }));
+      tip(g.querySelector('rect.b'), function () { var mk = nodeMarkers(n.id); return [h('small', null, unknown ? 'A data flow whose destination could not be traced' : (KIND_WORD[n.kind] || 'Element') + ' ' + n.id + ' · ' + str(rec && rec.kind)), h('b', null, name),
+        n.chips.length ? plural(mk.t.length, 'threat') + ', ' + plural(mk.c.length, 'control') + ', ' + plural(mk.v.length, 'verification test') + (wc ? '. Weakest coverage: ' + COV[wc][0].toLowerCase() + '.' : '.') : 'No threats or controls recorded against this element.', h('em', null, 'Select to highlight its connections')]; });
+      nodeEls.set(n.id, g); append(svg, [g]);
+    });
+    var active = null;
+    function focusNode(id) {
+      active = active === id ? null : id;
+      edgeEls.forEach(function (e) { e.classList.toggle('dim', !!active && e._a !== active && e._b !== active); });
+      nodeEls.forEach(function (g, nid) { var linked = !active || nid === active || edgeEls.some(function (e) { return (e._a === active && e._b === nid) || (e._b === active && e._a === nid); }); g.classList.toggle('dim', !linked); g.classList.toggle('sel', nid === active); });
+      info.textContent = '';
+      if (active && active !== '__unknown__') { var n = nodes.get(active); append(info, [h('b', null, label(active)), ' ', ref(active), n.chips.length ? [' — ', refs(n.chips.map(function (c) { return c[1]; }))] : ' — no threats or controls recorded against this element.']); fixRefs(info); }
+      else info.textContent = HINT;
+    }
+    nodeEls.forEach(function (g, id) { g.addEventListener('click', function () { focusNode(id); }); g.addEventListener('keydown', function (ev) { if (ev.target === g && (ev.key === 'Enter' || ev.key === ' ')) { ev.preventDefault(); focusNode(id); } }); });
+    function layer(cls, name) { var cb = h('input', { type: 'checkbox', checked: true }); cb.addEventListener('change', function () { svg.classList.toggle('hide-' + cls, !cb.checked); }); return h('label', null, cb, name); }
+    var scroller = h('div', { class: 'diascroll' }, svg), zoom = 1;
+    function setZoom(z) { zoom = Math.max(0.4, Math.min(2.5, z)); svg.style.width = Math.round(width * zoom) + 'px'; }
+    function fit() { var avail = scroller.clientWidth - 16; return avail > 0 ? avail / width : 1; }
+    function zbtn(textValue, name, fn) { var b = h('button', { class: 'btn', type: 'button', 'aria-label': name, title: name }, textValue); b.addEventListener('click', fn); return b; }
+    var zooms = h('span', { class: 'noprint zooms' }, zbtn('−', 'Zoom out', function () { setZoom(zoom / 1.2); }), zbtn('+', 'Zoom in', function () { setZoom(zoom * 1.2); }), zbtn('Fit', 'Fit to width', function () { setZoom(fit()); }));
+    setTimeout(function () { setZoom(Math.max(0.6, Math.min(1.5, fit()))); }, 0);
+    function lg(cls, textValue, color) { var i = h('i', { class: 'lg ' + cls }); if (color) { i.style.background = color; } return h('span', { class: 'k' }, i, textValue); }
+    var legend = h('div', { class: 'dialegend' },
+      h('span', { class: 'k' }, h('b', null, '▲'), 'Threat' + (anyRated ? ', coloured by risk rating:' : '')),
+      anyRated ? (ratingDefs.length ? ratingDefs.map(function (d) { return str(d.label); }) : uniq(threats.filter(ratedRisk).sort(threatOrder).map(function (t) { return str(ratedRisk(t).rating); }))).map(function (l) { return lg('sq', l, ratingColor(l) || '#460073'); }).concat([lg('sq', 'not yet rated', '#4a4852')]) : null,
+      h('span', { class: 'k' }, h('b', { class: 'cgreen' }, '■'), 'Control in place (dashed outline: not confirmed)'),
+      h('span', { class: 'k' }, h('b', { class: 'camber' }, '●'), 'Verification test outstanding (green: passed, red: failed)'),
+      multiZone ? lg('zn', 'Trust zone') : null, lg('ln', 'Data flow'), lg('lx', 'Flow crossing a trust boundary'), lg('st', 'Data store'), Object.keys(REC).some(function (k) { return REC[k] && REC[k].responsibility === 'vendor'; }) ? lg('vd', 'Grey: run by a vendor or third party') : null,
+      h('span', { class: 'k' }, 'Bar above a component: red no control, amber partly controlled, purple controlled, green verified'));
+    // A written key, so the diagram still reads in print where hover is unavailable.
+    var keyRows = Array.from(nodes.values()).filter(function (n) { return n.chips.length; }).sort(function (a, b) { return COV_ORDER.indexOf(worstCov(a.id) || 'closed') - COV_ORDER.indexOf(worstCov(b.id) || 'closed'); });
+    var key = keyRows.length ? fold('Diagram key: what each marker means', keyRows.length + ' components', table([
+      { title: 'Component', width: '20%', sort: false, render: function (n) { return h('span', null, h('b', null, label(n.id)), ' ', ref(n.id)); } },
+      { title: 'Threats', sort: false, render: function (n) { return lines(nodeMarkers(n.id).t, titled); } },
+      { title: 'Controls in place', sort: false, render: function (n) { return lines(nodeMarkers(n.id).c, titled); } },
+      { title: 'Verification', sort: false, render: function (n) { return lines(nodeMarkers(n.id).v, titled); } }], keyRows), 'tech-key') : null;
+    return [h('div', { class: 'dia' }, h('div', { class: 'diahead' }, h('b', null, 'System architecture'), zooms, h('span', { class: 'noprint' }, 'Show:'), layer('t', 'Threats'), layer('c', 'Controls'), layer('v', 'Verification')), legend, scroller, info), key];
+  }
+
+  function overview() {
+    if (!threats.length && !controls.length) return empty('No threats or controls were recorded.');
+    var rows = sortedThreats.map(function (t) { return { id: t.id, t: t, cs: arr(controlsByThreat.get(t.id)), trs: arr(treatmentsByThreat.get(t.id)), vs: arr(verifsByThreat.get(t.id)) }; });
+    var linkedC = {}, linkedTr = {}, linkedV = {}; rows.forEach(function (r) { r.cs.forEach(function (c) { linkedC[c.id] = 1; }); r.trs.forEach(function (x) { linkedTr[x.id] = 1; }); r.vs.forEach(function (v) { linkedV[v.id] = 1; }); });
+    var orphan = { id: '', t: null, cs: controls.filter(function (c) { return !linkedC[c.id]; }), trs: treatments.filter(function (x) { return !linkedTr[x.id]; }), vs: verifs.filter(function (v) { return !linkedV[v.id] && !arr(v.control_refs).length; }) };
+    if (orphan.cs.length || orphan.trs.length || orphan.vs.length) rows.push(orphan);
+    var wrap = table([
+      { title: 'Threat', width: '21%', value: function (r) { return r.id || 'zzz'; }, render: function (r) { return r.t ? h('span', null, ref(r.t.id), ' ', r.t.status !== 'open' ? tag(r.t.status) : null, h('span', { class: 'line' }, h('b', null, nameOf(r.t.id)))) : h('span', { class: 'empty' }, 'Not linked to a threat'); } },
+      { title: 'Risk', width: '11%', value: function (r) { var k = r.t && ratedRisk(r.t); return k ? ratingRank(k.rating) : 99; }, render: function (r) { return r.t ? riskCell(r.t) : null; } },
+      { title: 'Finding', width: '10%', value: function (r) { return r.t ? r.t.finding_type : ''; }, render: function (r) { return r.t ? [findingTag(r.t), valTag(r.t.id)] : null; } },
+      { title: 'Components', width: '8%', sort: false, render: function (r) { return r.t ? refs(r.t.affected_refs) : null; } },
+      { title: 'Controls in place', width: '18%', value: function (r) { return r.t ? COV_ORDER.indexOf(coverage(r.t)) : 9; }, render: function (r) { return [r.t ? h('span', { class: 'line' }, covTag(r.t)) : null, r.cs.map(function (c) { return h('span', { class: 'line' }, titled(c.id), ' ', tag(c.status)); })]; } },
+      { title: 'Recommendations', width: '17%', sort: false, render: function (r) { return lines(r.trs, function (x) { return titled(x.id); }); } },
+      { title: 'Verification required', width: '15%', sort: false, render: function (r) { return lines(r.vs, function (v) { return [titled(v.id), ' ', tag(v.status)]; }); } }
+    ], rows);
+    var count = h('span', { class: 'count' }), q = '', fC = selectOf('All coverage', COV_ORDER.filter(function (k) { return covCounts[k]; })), fT = selectOf('All finding types', Object.keys(countBy(threats, 'finding_type')));
+    Array.prototype.forEach.call(fC.options, function (o) { if (COV[o.value]) o.textContent = COV[o.value][0]; });
+    function update() { var n = 0; wrap._trs.forEach(function (tr) { var t = tr._row.t; var ok = (!q || tr.textContent.toLowerCase().indexOf(q) >= 0) && (!fC.value || (t && coverage(t) === fC.value)) && (!fT.value || (t && t.finding_type === fT.value)); tr.classList.toggle('hidden', !ok); if (ok) n++; }); count.textContent = n + ' of ' + wrap._trs.length + ' rows'; }
+    fC.addEventListener('change', update); fT.addEventListener('change', update); update();
+    return [h('div', { class: 'toolbar' }, searchBox('Search the overview…', function (v) { q = v; update(); }), fC, fT, count), wrap];
+  }
+
+  function elementTable(rows) {
+    var anyResp = rows.some(function (r) { return respOf(r.id); });
+    return table([idCol(), col('Kind', function (r) { return str(r.kind); }), col('Description', function (r) { return [str(r.description), ' ', valTag(r.id)]; })].concat(anyResp ? [col('Run by', function (r) { return respTag(r.id) || h('span', { class: 'empty' }, '\u2014'); })] : [], [{ title: 'Based on', sort: false, render: function (r) { return basisChips(r); } },
+      refCol('Threats', function (r) { return ids(threatsByAffected.get(r.id)); }), refCol('Controls', function (r) { return ids(controlsByAffected.get(r.id)); }), refCol('Evidence', function (r) { return r.evidence_refs; })]), rows, { anchor: true });
+  }
+  function inventory() {
+    var out = [];
+    [['actors', 'Actors'], ['entry_points', 'Entry points'], ['assets', 'Components'], ['data', 'Data'], ['zones', 'Trust zones'], ['states', 'States']].forEach(function (p) { var rows = arr(sys[p[0]]); if (rows.length) out.push(fold(p[1], rows.length, elementTable(rows))); });
+    if (arr(sys.boundaries).length) out.push(fold('Trust boundaries', sys.boundaries.length, table([idCol(), col('Description', function (r) { return str(r.description); }), refCol('Between', function (r) { return r.side_refs; }),
+      col('Basis', function (r) { return tag(r.basis); }), refCol('Threats', function (r) { return ids(threatsByAffected.get(r.id)); }), refCol('Open questions', function (r) { return r.gap_refs; })], sys.boundaries, { anchor: true })));
+    if (arr(sys.flows).length) out.push(fold('Data flows', sys.flows.length, table([idCol(), { title: 'From → to', sort: false, render: function (r) { return h('span', null, r.source_ref ? ref(r.source_ref) : h('span', { class: 'empty' }, 'unknown'), ' → ', r.target_ref ? ref(r.target_ref) : h('span', { class: 'empty' }, 'not traced')); } },
+      col('Description', function (r) { return str(r.description); }), refCol('Data', function (r) { return r.data_refs; }), refCol('Crosses', function (r) { return r.boundary_refs; }), col('Basis', function (r) { return tag(r.basis); })], sys.flows, { anchor: true })));
+    if (arr(sys.dependencies).length) out.push(fold('Dependencies', sys.dependencies.length, table([idCol(), { title: 'From → to', sort: false, render: function (r) { return h('span', null, r.source_ref ? ref(r.source_ref) : '?', ' → ', r.target_ref ? ref(r.target_ref) : '?'); } }, col('Description', function (r) { return str(r.description); })], sys.dependencies, { anchor: true })));
+    return out.length ? out : empty('No components were recorded.');
+  }
+  function techSummary() {
+    return section('tech', '2', 'Technical summary', 'The system and its trust zones, with every threat, control and verification test placed on the component it concerns.', [
+      h('h3', { id: 'tech-diagram' }, 'Architecture and threats'),
+      h('p', { class: 'intro' }, 'Components are grouped by trust zone and arranged in flow order from the actors on the left. The diagram shows logical data flow, not network placement.'),
+      diagram(),
+      h('h3', { id: 'tech-overview' }, 'Overview of threats, controls, recommendations and verification'),
+      h('p', { class: 'intro' }, 'One row per threat. ' + ORDER_NOTE + ' Select any reference to open the full entry.'),
+      overview(),
+      h('h3', { id: 'tech-inventory' }, 'Component and flow inventory'),
+      h('p', { class: 'intro' }, 'Every actor, component, data type and flow in scope. Open a group to see its entries.'),
+      inventory()
+    ], [['tech-diagram', 'Architecture and threats'], ['tech-overview', 'Overview table'], ['tech-inventory', 'Component inventory']]);
+  }
+
+  // ---------- 3 Threats ----------
+  function renderTreeNode(nm, id, depthLeft, seen) {
+    var n = nm.get(id); if (!n) return h('li', null, h('span', { class: 'ref dangling' }, id));
+    if (seen[id] || depthLeft <= 0) return h('li', null, h('span', { class: 'tid' }, id), ' (repeated)');
+    var next = Object.assign({}, seen); next[id] = 1;
+    return h('li', null, h('span', { class: 'op' }, ({ OR: 'any of', AND: 'all of', LEAF: 'step', UNKNOWN: 'unclear' })[str(n.operator)] || str(n.operator)), h('span', { class: 'tid' }, n.id), ' ', str(n.description), arr(n.assumptions).length ? h('span', { class: 'note' }, ' — assumes: ' + n.assumptions.join('; ')) : null,
+      arr(n.children).length ? h('ul', null, n.children.map(function (c) { return renderTreeNode(nm, c, depthLeft - 1, next); })) : null);
+  }
+  function threatCard(t) {
+    var m = meta(t.id), r = ratedRisk(t), fw = []; fwOrder.forEach(function (mid) { var fs = arr(fwMap[mid][t.id]); if (fs.length) fw.push(h('span', { class: 'line' }, h('span', { class: 'note' }, fwName(mid) + ' '), fs.map(fwChip))); });
+    var cs = arr(controlsByThreat.get(t.id)), trs = arr(treatmentsByThreat.get(t.id)).slice().sort(bySeq(treatmentSeq)), vs = arr(verifsByThreat.get(t.id)), as = assumptionsFor(t.id), resp = responseOf(t);
+    var det = h('details', { class: 'threat', id: anchor(t.id) },
+      h('summary', null, h('span', { class: 'tid' }, t.id), riskNow(t), covTag(t), t.status !== 'open' ? tag(t.status) : null, h('span', { class: 'stitle' }, nameOf(t.id))),
+      h('div', { class: 'body' },
+        h('div', { class: 'stmt' },
+          h('div', null, h('b', null, 'What could happen'), h('p', null, str(t.scenario))),
+          h('div', { class: 'imp' }, h('b', null, 'Why it matters'), h('p', null, str(m.impact) ? str(m.impact) : h('span', { class: 'empty' }, 'Business impact not yet described.')))),
+        fields([['Who and what it needs', h('span', null, arr(t.actor_assumptions).concat(arr(t.prerequisites)).length ? list(arr(t.actor_assumptions).concat(arr(t.prerequisites))) : h('span', { class: 'empty' }, '—'))],
+          ['Affected components', lines(t.affected_refs, function (id) { return [ref(id), ' ', label(id), ' ', respTag(id)]; })],
+          ['Finding', h('span', null, findingTag(t), ' ', tag(t.confidence, 'confidence'), ' ', str(t.confidence_rationale))],
+          ['Based on', basisChips(t)],
+          VAL[t.id] ? ['Client validation', h('span', null, valTag(t.id), ' ', str(VAL[t.id].note))] : null,
+          ['Risk', h('span', null, riskCell(t), ' ', r ? arr(r.inputs).map(function (i) { return str(i.name) + ': ' + str(i.value); }).join(', ') + (str(m.target_rating) ? '. Target after treatment: ' + str(m.target_rating) + '.' : '') : unratedReason(t), r ? [' ', ref(r.id)] : null)],
+          ['Response', h('span', null, responseTag(t), ' ', str(m.response_note) || (resp.proposed ? 'Proposed in this report; to be confirmed by the system owner.' : (resp.key === 'undecided' ? 'No response has been agreed.' : '')))],
+          fw.length ? ['Frameworks', fw] : null]),
+        h('div', { class: 'three' },
+          h('div', null, h('h4', null, 'Controls in place today'), h('p', null, covTag(t), ' ', covNote(t)),
+            cs.length ? h('ul', { class: 'plain' }, cs.map(function (c) { return h('li', null, ref(c.id), ' ', tag(c.status), valTag(c.id), ' ', str(c.description), c.limitations ? h('span', { class: 'line note' }, 'Limit: ' + str(c.limitations)) : null); })) : null),
+          h('div', null, h('h4', null, 'What we recommend'), trs.length ? h('ul', { class: 'plain' }, trs.map(function (x) { return h('li', null, anyPrio ? [prioTag(x.id), ' '] : null, ref(x.id), ' ', str(x.outcome)); })) : h('p', { class: 'empty' }, 'No recommendation recorded.')),
+          h('div', null, h('h4', null, 'How to verify'), vs.length ? h('ul', { class: 'plain' }, vs.map(function (v) { return h('li', null, ref(v.id), ' ', tag(v.status), ' ', nameOf(v.id), h('span', { class: 'line note' }, VTYPE[vtype(v)] + '. Pass: ' + str(v.pass_criteria))); })) : h('p', { class: 'empty' }, 'No verification recorded.'))),
+        fields([['Evidence', refs(t.evidence_refs)], as.length ? ['Relies on', list(as.map(function (a) { return str(a.statement); }))] : null, arr(t.related_threat_refs).length ? ['Related threats', refs(t.related_threat_refs)] : null,
+          arr(t.gap_refs).length ? ['Open questions', lines(t.gap_refs, function (id) { return [ref(id), ' ', label(id)]; })] : null, arr(t.resolution_evidence_refs).length ? ['Resolution evidence', refs(t.resolution_evidence_refs)] : null])));
+    det._t = t; return det;
+  }
+  function threatsSection() {
+    var out = [];
+    out.push(h('h3', { id: 'threats-fw' }, 'Framework mapping'));
+    if (fwOrder.length) {
+      out.push(h('p', { class: 'intro' }, 'How each threat maps to the frameworks applied in this engagement. A dash means no mapping was made for that threat.'));
+      out.push(table([{ title: 'Threat', width: '26%', value: function (t) { return t.id; }, render: function (t) { return h('span', null, ref(t.id), h('span', { class: 'line' }, nameOf(t.id))); } }]
+        .concat(fwOrder.map(function (mid) { return { title: fwName(mid), sort: false, render: function (t) { return fwCell(mid, t.id); } }; })), sortedThreats));
+      fwOrder.forEach(function (mid) {
+        var c = {}; Object.keys(fwMap[mid]).forEach(function (tid) { fwMap[mid][tid].forEach(function (f) { var k = (f.identifier ? str(f.identifier) + ' ' : '') + str(f.value); c[k] = (c[k] || 0) + 1; }); });
+        var keys = Object.keys(c).sort(function (a, b) { return c[b] - c[a]; });
+        if (keys.length > 1 && keys.length <= 8) out.push(h('p', { class: 'note' }, h('b', null, fwName(mid) + ' spread: '), keys.map(function (k) { return k + ' (' + c[k] + ')'; }).join(', ') + '.'));
+      });
+    } else out.push(h('p', { class: 'basis' }, 'No framework mappings were recorded for this assessment.'));
+
+    out.push(h('h3', { id: 'threats-detail' }, 'Threat details'));
+    if (!threats.length) { out.push(empty('No threats were recorded.')); return section('threats', '3', 'Threats', null, out); }
+    var items = sortedThreats.map(threatCard);
+    var count = h('span', { class: 'count' }), q = '', fC = selectOf('All coverage', COV_ORDER.filter(function (k) { return covCounts[k]; })), fT = selectOf('All finding types', Object.keys(countBy(threats, 'finding_type')));
+    Array.prototype.forEach.call(fC.options, function (o) { if (COV[o.value]) o.textContent = COV[o.value][0]; });
+    function update() { var n = 0; items.forEach(function (d) { var t = d._t, ok = (!fC.value || coverage(t) === fC.value) && (!fT.value || t.finding_type === fT.value) && (!q || d.textContent.toLowerCase().indexOf(q) >= 0); d.classList.toggle('hidden', !ok); if (ok) n++; }); count.textContent = n + ' of ' + items.length + ' threats'; }
+    fC.addEventListener('change', update); fT.addEventListener('change', update);
+    var ex = h('button', { class: 'btn', type: 'button' }, 'Expand all'), co = h('button', { class: 'btn', type: 'button' }, 'Collapse all');
+    ex.addEventListener('click', function () { items.forEach(function (d) { d.open = true; }); }); co.addEventListener('click', function () { items.forEach(function (d) { d.open = false; }); });
+    update(); if (items.length) items[0].open = true;
+    out.push(h('p', { class: 'intro' }, ORDER_NOTE + ' Each entry is self-contained: the threat, why it matters, the controls in place today, what we recommend and how to verify it.'), h('div', { class: 'toolbar' }, searchBox('Search threats…', function (v) { q = v; update(); }), fC, fT, ex, co, count), items);
+    if (arr(M.attack_trees).length) {
+      out.push(h('h3', { id: 'threats-trees' }, 'Attack trees and paths'), h('p', { class: 'intro' }, 'How the threats combine into routes an attacker could take to a goal.'));
+      arr(M.attack_trees).forEach(function (t) {
+        if (t.kind === 'tree') { var nm = new Map(arr(t.nodes).map(function (n) { return [n.id, n]; }));
+          out.push(h('div', { class: 'card', id: anchor(t.id) }, h('div', { class: 'chead' }, h('span', { class: 'tid' }, t.id), refs(t.threat_refs)), h('p', { class: 'ctitle' }, str(t.description)),
+            h('div', { class: 'tree' }, h('ul', null, arr(t.root_refs).map(function (r) { return renderTreeNode(nm, r, 30, {}); }))), arr(t.limitations).length ? h('p', { class: 'note' }, 'Limitations: ' + t.limitations.join('; ')) : null));
+        } else out.push(h('div', { class: 'card', id: anchor(t.id) }, h('div', { class: 'chead' }, h('span', { class: 'tid' }, t.id), refs(t.threat_refs)), h('p', { class: 'ctitle' }, str(t.description)),
+          table([idCol('Step'), col('Description', function (x) { return str(x.description); }), col('Status', function (x) { return tag(x.status); })], arr(t.transitions))));
+      });
+      if (arr(M.attack_paths).length) out.push(table([idCol('Path'), col('Tree', function (p) { return str(p.structure_ref); }), col('Status', function (p) { return tag(p.status); }),
+        col('Steps', function (p) { return h('span', { class: 'mono' }, arr(p.node_refs).join(' + ')); }), col('Limitations', function (p) { return list(p.limitations); })], M.attack_paths),
+        h('p', { class: 'note' }, 'A supported path follows from the evidence without further assumptions; a conditional path depends on an assumption shown in the tree. Neither means anyone carried the path out.'));
+    }
+    if (arr(M.conflicts).length) {
+      out.push(h('h3', null, 'Conflicting evidence'));
+      arr(M.conflicts).forEach(function (c) { out.push(h('div', { class: 'card', id: anchor(c.id) }, h('div', { class: 'chead' }, h('span', { class: 'tid' }, c.id), tag(c.status), refs(c.subject_refs)), h('p', null, str(c.description)),
+        h('ul', { class: 'plain' }, arr(c.alternatives).map(function (a) { return h('li', null, str(a.statement), ' ', refs(a.evidence_refs)); })), c.resolution ? h('p', null, h('b', null, 'Resolution: '), str(c.resolution)) : null)); });
+    }
+    return section('threats', '3', 'Threats', 'What could go wrong, why it matters, and how each threat maps to the frameworks used.', out, [['threats-fw', 'Framework mapping'], ['threats-detail', 'Threat details']]);
+  }
+
+  // ---------- 4 Controls ----------
+  function controlsSection() {
+    var out = [h('h3', { id: 'controls-coverage' }, 'Coverage by threat'),
+      h('p', { class: 'intro' }, 'Whether the controls in place today are enough for each open threat. "Partly controlled" means a control exists but the weakness was observed despite it, or the control addresses only part of the threat.'),
+      h('div', { class: 'nums' }, ['none', 'partial', 'reported', 'controlled', 'verified'].filter(function (k) { return k !== 'reported' || covCounts.reported; }).map(function (k) { return h('div', { class: 'cov-' + k }, h('b', null, String(covCounts[k] || 0)), h('span', null, COV[k][0].charAt(0).toLowerCase() + COV[k][0].slice(1))); }))];
+    out.push(openThreats.length ? table([
+      { title: 'Threat', width: '24%', value: function (t) { return t.id; }, render: function (t) { return h('span', null, ref(t.id), h('span', { class: 'line' }, h('b', null, nameOf(t.id)))); } },
+      { title: 'Risk', width: '10%', value: function (t) { var k = ratedRisk(t); return k ? ratingRank(k.rating) : 99; }, render: function (t) { return riskNow(t); } },
+      { title: 'Coverage', width: '16%', value: function (t) { return COV_ORDER.indexOf(coverage(t)); }, render: function (t) { return covTag(t); } },
+      { title: 'Controls in place', width: '25%', sort: false, render: function (t) { return lines(arr(controlsByThreat.get(t.id)), function (c) { return [titled(c.id), ' ', tag(c.status)]; }); } },
+      { title: 'What is missing', width: '25%', sort: false, render: function (t) { return covNote(t); } }], openThreats.slice().sort(function (a, b) { return COV_ORDER.indexOf(coverage(a)) - COV_ORDER.indexOf(coverage(b)) || threatOrder(a, b); })) : empty('No open threats.'));
+    out.push(h('h3', { id: 'controls-register' }, 'Control register'),
+      h('p', { class: 'intro' }, '"Implemented" means the control was observed in code or configuration. "Tested" means there is also evidence that it works. "Reported" means the control was described in documentation or by the client or vendor but not observed. "Designed" means it is planned but not yet in place.'));
+    out.push(controls.length ? searchable(table([idCol(), { title: 'Control', width: '34%', render: function (c) { return h('span', null, str(meta(c.id).title) ? h('b', { class: 'line' }, str(meta(c.id).title)) : null, str(c.description), c.limitations ? h('span', { class: 'line note' }, 'Limit: ' + str(c.limitations)) : null); } },
+      col('Status', function (c) { return [tag(c.status), valTag(c.id)]; }), { title: 'Based on', sort: false, render: function (c) { return basisChips(c); } },
+      { title: 'Tested by', sort: false, render: function (c) { var vs = uniq(arr(c.verification_refs).concat(ids(verifsByControl.get(c.id)))); return vs.length ? lines(vs, function (id) { var v = byId.get(id); return [ref(id), ' ', v ? tag(v.status) : null]; }) : h('span', { class: 'empty' }, 'Not tested'); } },
+      { title: 'Threats addressed', sort: false, render: function (c) { return lines(c.threat_refs, titled); } }, refCol('Components', function (c) { return c.affected_refs; }), refCol('Evidence', function (c) { return c.evidence_refs; })], controls, { anchor: true }), 'controls') : empty('No existing controls were recorded.'));
+    return section('controls', '4', 'Controls', 'The protections in place today, and whether they are enough for each threat.', out, [['controls-coverage', 'Coverage by threat'], ['controls-register', 'Control register']]);
+  }
+
+  // ---------- 5 Recommendations ----------
+  function recsSection() {
+    var out = [h('h3', { id: 'recs-plan' }, 'Recommendation plan'),
+      h('p', { class: 'intro' }, 'Each recommendation is a proposal for the system owner to accept, change or decline.' + (anyPrio ? ' Priority follows the risk rating of the threats addressed (P1 is highest).' : '') + ' Nothing here has been implemented unless a decision records it.')];
+    if (!treatments.length) out.push(empty('No recommendations were recorded.'));
+    else {
+      var cols = [];
+      if (anyPrio) cols.push({ title: 'Priority', width: '80px', value: function (x) { return prioSort(x.id); }, render: function (x) { return prioTag(x.id); } });
+      cols.push({ title: 'Recommendation', width: '30%', sort: false, render: function (x) { return h('span', null, h('b', null, nameOf(x.id)), ' ', ref(x.id)); } },
+        { title: 'Addresses', sort: false, render: function (x) { return lines(x.threat_refs, function (id) { var t = byId.get(id); return [ref(id), ' ', t ? riskCell(t) : null]; }); } });
+      if (anyMeta(treatments, 'effort')) cols.push(col('Effort', function (x) { return tba(meta(x.id).effort); }));
+      cols.push(col('Owner', function (x) { return tba(meta(x.id).owner); }), col('Target date', function (x) { return tba(meta(x.id).target_date); }),
+        { title: 'Decision', sort: false, render: function (x) { var ds = arr(decisionsBySubject.get(x.id)); return ds.length ? ds.map(function (d) { return [ref(d.id), ' ', tag(d.status)]; }) : h('span', { class: 'tag warn' }, 'awaiting decision'); } });
+      out.push(table(cols, sortedTreatments), h('p', null, exportButton()));
+    }
+    var bare = openThreats.filter(function (t) { return !arr(treatmentsByThreat.get(t.id)).length; });
+    if (bare.length) out.push(h('div', { class: 'basis' }, h('h4', null, 'Threats without a recommendation yet'), h('ul', null, bare.map(function (t) {
+      var gs = arr(t.gap_refs).filter(function (id) { var g = byId.get(id); return g && g.status === 'open'; });
+      return h('li', null, titled(t.id), gs.length ? [' \u2014 waiting on ', refs(gs), '.'] : ' \u2014 no recommendation has been made.'); }))));
+    out.push(h('h3', { id: 'recs-detail' }, 'Recommendation details'));
+    sortedTreatments.forEach(function (r) {
+      var ds = arr(decisionsBySubject.get(r.id)), m = meta(r.id);
+      out.push(h('div', { class: 'card', id: anchor(r.id) }, h('div', { class: 'chead' }, h('span', { class: 'tid' }, r.id), anyPrio ? prioTag(r.id) : null, tag(r.status), str(m.title) ? h('b', null, str(m.title)) : null),
+        h('p', { class: 'ctitle' }, str(r.outcome)),
+        fields([['Addresses', lines(r.threat_refs, function (id) { var t = byId.get(id); return [titled(id), ' ', t ? riskCell(t) : null]; })], ['Alternatives', list(r.alternatives)], ['Trade-offs', list(r.tradeoffs)],
+          ['Confirmed by', lines(r.verification_refs, titled)], arr(r.dependency_refs).length ? ['Depends on', refs(r.dependency_refs)] : null,
+          arr(r.pack_dependencies).length ? ['Technology guidance', list(arr(r.pack_dependencies).map(function (p) { return str(p.technology) + ': ' + str(p.status) + (p.pack_id ? ' (' + p.pack_id + ')' : ''); }))] : null,
+          arr(r.gap_refs).length ? ['Open questions', lines(r.gap_refs, function (id) { return [ref(id), ' ', label(id)]; })] : null, ds.length ? ['Decision', ds.map(function (d) { return h('span', { class: 'line' }, ref(d.id), ' ', tag(d.status), ' ', str(d.rationale)); })] : null])));
+    });
+    if (arr(M.requirements).length) out.push(h('h3', null, 'Security requirements'), table([idCol(), col('Requirement', function (r) { return str(r.statement); }), col('Status', function (r) { return tag(r.status); }), col('Origin', function (r) { return str(r.origin); }), refCol('Components', function (r) { return r.affected_refs; })], M.requirements, { anchor: true }));
+    if (arr(M.decisions).length) out.push(h('h3', null, 'Decisions'), table([idCol(), refCol('About', function (r) { return r.subject_refs; }), col('Status', function (r) { return tag(r.status); }), col('Rationale', function (r) { return str(r.rationale); }),
+      col('Owner', function (r) { return tba(r.owner, 'Not supplied'); }), col('Date', function (r) { return tba(r.date, 'Not supplied'); })], M.decisions, { anchor: true }));
+    return section('recs', '5', 'Recommendations', 'What we recommend changing, in priority order.', out, [['recs-plan', 'Recommendation plan'], ['recs-detail', 'Recommendation details']]);
+  }
+
+  // ---------- 6 Verification ----------
+  function verifSection() {
+    var out = [h('h3', { id: 'verif-plan' }, 'Verification plan'),
+      h('p', { class: 'intro' }, 'The tests that confirm whether each threat is real and whether each fix works. Outstanding tests have not been performed; they need authorisation and an isolated test environment. Run them in the order shown.'),
+      h('div', { class: 'nums' }, ['not_run', 'passed', 'failed', 'inconclusive'].map(function (k) { return h('div', null, h('b', null, String(verifs.filter(function (v) { return v.status === k; }).length)), h('span', null, nice(k))); }))];
+    if (!verifs.length) out.push(empty('No verification was recorded.'));
+    else {
+      var seq = {}; sortedVerifs.forEach(function (v, i) { seq[v.id] = i + 1; });
+      var cols = [{ title: '#', width: '44px', value: function (v) { return seq[v.id]; }, render: function (v) { return String(seq[v.id]); } }];
+      if (anyPrio) cols.push({ title: 'Priority', width: '80px', value: function (v) { return prioSort(v.id); }, render: function (v) { return prioTag(v.id); } });
+      cols.push({ title: 'Test', width: '26%', sort: false, render: function (v) { return h('span', null, h('b', null, nameOf(v.id)), ' ', ref(v.id)); } },
+        col('Purpose', function (v) { return VTYPE[vtype(v)]; }),
+        { title: 'For', sort: false, render: function (v) { return lines(arr(v.threat_refs).concat(arr(v.control_refs)), function (id) { return ref(id); }); } });
+      if (anyMeta(verifs, 'environment')) cols.push(col('Environment', function (v) { return isDone(v) ? tba(meta(v.id).environment, '\u2014') : tba(meta(v.id).environment); }));
+      cols.push(col('Owner', function (v) { return isDone(v) ? tba(meta(v.id).owner, '\u2014') : tba(meta(v.id).owner); }), col('Target date', function (v) { return isDone(v) ? tba(meta(v.id).target_date, '\u2014') : tba(meta(v.id).target_date); }), col('Status', function (v) { return tag(v.status); }));
+      out.push(table(cols, sortedVerifs), h('p', null, exportButton()));
+    }
+    out.push(h('h3', { id: 'verif-detail' }, 'Test details'));
+    sortedVerifs.forEach(function (v) {
+      var m = meta(v.id);
+      out.push(h('div', { class: 'card', id: anchor(v.id) }, h('div', { class: 'chead' }, h('span', { class: 'tid' }, v.id), anyPrio ? prioTag(v.id) : null, tag(v.status), h('span', { class: 'tag' }, VTYPE[vtype(v)]), str(m.title) ? h('b', null, str(m.title)) : null),
+        h('p', { class: 'ctitle' }, str(v.approach)),
+        fields([['For', lines(arr(v.threat_refs).concat(arr(v.control_refs)), titled)], ['Expected outcome', str(v.expected_outcome)], str(m.environment) ? ['Environment', str(m.environment)] : null,
+          arr(v.prerequisite_evidence_refs).length ? ['Prerequisites', refs(v.prerequisite_evidence_refs)] : null, arr(v.result_evidence_refs).length ? ['Result evidence', refs(v.result_evidence_refs)] : null]),
+        h('div', { class: 'criteria' }, h('div', { class: 'pass' }, h('b', null, 'Pass'), str(v.pass_criteria)), h('div', { class: 'fail' }, h('b', null, 'Fail'), str(v.fail_criteria)), h('div', { class: 'inc' }, h('b', null, 'Inconclusive'), str(v.inconclusive_criteria)))));
+    });
+    return section('verif', '6', 'Verification required', 'What needs to be tested, in what order, and how to tell pass from fail.', out, [['verif-plan', 'Verification plan'], ['verif-detail', 'Test details']]);
+  }
+
+
+  // ---------- 7 Penetration test plan ----------
+  // Priority targets and attack paths for scoping a penetration test. Paths come from the engagement
+  // file when supplied; otherwise one is derived per open threat from the recorded flows.
+  var TP = obj(eng.test_plan);
+  var PT_TESTABLE = { confirm_weakness: 1, retest_fix: 1, test_control: 1 };
+  var isNode = function (id) { var k = kindOf.get(id); return k === 'actors' || k === 'entry_points' || k === 'assets' || k === 'dependencies'; };
+  function flowBetween(a, b) { return arr(sys.flows).filter(function (f) { return f.source_ref === a && f.target_ref === b; })[0] || arr(sys.flows).filter(function (f) { return f.source_ref === b && f.target_ref === a; })[0]; }
+  function threatTargets(t) {
+    var out = [];
+    arr(t.affected_refs).forEach(function (id) {
+      if (isNode(id)) out.push(id);
+      else if (kindOf.get(id) === 'flows') { var f = byId.get(id); if (f && f.target_ref) out.push(f.target_ref); }
+    });
+    return uniq(out);
+  }
+  function deriveRoute(t) {
+    var targets = threatTargets(t); if (!targets.length) return [];
+    var flows = arr(sys.flows), prev = new Map(), queue = [], seen = new Set();
+    var starts = arr(sys.actors).map(function (a) { return a.id; });
+    if (!starts.length) starts = uniq(flows.map(function (f) { return f.source_ref; })).filter(function (id) { return id && !flows.some(function (f) { return f.target_ref === id; }); });
+    starts.forEach(function (id) { seen.add(id); queue.push(id); });
+    var hit = null;
+    while (queue.length && !hit) {
+      var cur = queue.shift();
+      if (targets.indexOf(cur) >= 0 && kindOf.get(cur) !== 'actors') { hit = cur; break; }
+      flows.forEach(function (f) { if (f.source_ref === cur && f.target_ref && !seen.has(f.target_ref)) { seen.add(f.target_ref); prev.set(f.target_ref, cur); queue.push(f.target_ref); } });
+    }
+    if (!hit) return targets.slice(0, 4);
+    var path = [hit]; while (prev.has(path[0])) path.unshift(prev.get(path[0]));
+    return path;
+  }
+  function pathPrio(p) { var ns = p.threats.map(prioNum).filter(Boolean); return ns.length ? Math.min.apply(null, ns) : 99; }
+  function testPaths() {
+    var own = arr(TP.paths).filter(function (x) { return x && (x.title || arr(x.threat_refs).length); });
+    var derived = !own.length, out;
+    if (derived) {
+      out = sortedThreats.filter(function (t) { return t.status === 'open'; }).map(function (t) {
+        return { title: nameOf(t.id), objective: str(t.objective), start: uniq(arr(t.prerequisites).concat(arr(t.actor_assumptions)).map(str)).join('; '), route: deriveRoute(t), threats: [t], controlIds: null, verifIds: null, cases: [], success: '', effort: '', notes: '', priority: '', derived: true };
+      });
+    } else {
+      out = own.map(function (x) {
+        var ts = arr(x.threat_refs).map(function (id) { return byId.get(id); }).filter(function (t) { return t && kindOf.get(t.id) === 'threats'; });
+        return { id: str(x.id), title: str(x.title) || (ts[0] ? nameOf(ts[0].id) : 'Attack path'), objective: str(x.objective), start: str(x.start), route: arr(x.route).map(str).filter(function (id) { return byId.has(id); }), threats: ts,
+          controlIds: arr(x.control_refs).length ? arr(x.control_refs).map(str) : null, verifIds: arr(x.verification_refs).length ? arr(x.verification_refs).map(str) : null,
+          cases: paras(x.test_cases), success: str(x.success), effort: str(x.effort), notes: str(x.notes), priority: str(x.priority), derived: false };
+      });
+    }
+    out.forEach(function (p, i) {
+      if (!p.id) p.id = 'AP-' + (i < 9 ? '0' : '') + (i + 1);
+      if (!p.route.length && p.threats.length) p.route = deriveRoute(p.threats[0]);
+      p.controls = (p.controlIds || uniq([].concat.apply([], p.threats.map(function (t) { return arr(controlsByThreat.get(t.id)).map(function (c) { return c.id; }); })))).map(function (id) { return byId.get(id); }).filter(Boolean);
+      var vs = (p.verifIds || uniq([].concat.apply([], p.threats.map(function (t) { return arr(verifsByThreat.get(t.id)).map(function (v) { return v.id; }); })))).map(function (id) { return byId.get(id); }).filter(Boolean);
+      p.tests = vs.filter(function (v) { return PT_TESTABLE[vtype(v)]; }); p.reviews = vs.filter(function (v) { return !PT_TESTABLE[vtype(v)]; });
+      p.vendor = uniq(p.route.length ? p.route : [].concat.apply([], p.threats.map(threatTargets))).filter(function (id) { return respOf(id) === 'vendor' || respOf(id) === 'shared'; });
+      p.prio = pathPrio(p);
+    });
+    return { paths: out, derived: derived };
+  }
+  function pathPrioTag(p) { if (p.priority) return h('span', { class: 'prio p2' }, p.priority); return p.prio < 99 ? h('span', { class: 'prio p' + Math.min(p.prio, 4) }, 'P' + p.prio) : h('span', { class: 'empty', title: 'Exercises threats that are not yet rated' }, 'Unranked'); }
+  function routeStrip(p) {
+    if (!p.route.length) return null;
+    var kids = [];
+    p.route.forEach(function (id, i) {
+      if (i) { var f = flowBetween(p.route[i - 1], id), bs = arr(f && f.boundary_refs).map(function (b) { return nameOf(b); }); kids.push(h('span', { class: 'arrow' }, '→', bs.length ? h('small', null, 'crosses ' + trunc(bs[0], 48)) : null)); }
+      var r = respOf(id), k = kindOf.get(id);
+      kids.push(h('span', { class: 'hop' + (r === 'vendor' ? ' vendor' : '') + (i === p.route.length - 1 ? ' goal' : '') }, h('small', null, (k === 'actors' ? 'Start' : (k === 'entry_points' ? 'Entry point' : 'Component')) + (r ? ' · ' + RESPWORD[r] : '')), ref(id), ' ', trunc(nameOf(id), 60)));
+    });
+    return h('div', { class: 'route' }, kids);
+  }
+  function testTargets(paths) {
+    var why = {}; arr(obj(eng.executive_summary).key_components).forEach(function (c) { if (c && c.ref) why[c.ref] = str(c.why); });
+    var rows = [];
+    arr(sys.entry_points).concat(arr(sys.assets), arr(sys.dependencies)).forEach(function (c) {
+      var ts = arr(threatsByAffected.get(c.id)).filter(function (t) { return t.status === 'open'; }).sort(threatOrder);
+      var on = paths.filter(function (p) { return p.route.indexOf(c.id) >= 0 || p.threats.some(function (t) { return threatTargets(t).indexOf(c.id) >= 0; }); });
+      if (!ts.length && !on.length) return;
+      var crossing = arr(sys.flows).some(function (f) { return (f.target_ref === c.id || f.source_ref === c.id) && arr(f.boundary_refs).length; });
+      var best = Math.min.apply(null, ts.map(prioNum).filter(Boolean).concat([99]));
+      rows.push({ id: c.id, threats: ts, paths: on, entry: kindOf.get(c.id) === 'entry_points', crossing: crossing, best: best, why: why[c.id] || '' });
+    });
+    rows.sort(function (a, b) { return a.best - b.best || b.threats.length - a.threats.length || (b.entry ? 1 : 0) - (a.entry ? 1 : 0) || b.paths.length - a.paths.length || str(a.id).localeCompare(str(b.id), undefined, { numeric: true }); });
+    return rows;
+  }
+  function accessNote(id) {
+    var r = respOf(id);
+    if (r === 'vendor') return 'Third-party permission needed. Test only the client-side configuration and integration.';
+    if (r === 'shared') return 'Agree with the provider which parts may be tested.';
+    if (r === 'client') return 'Client-run; testable with the client’s authorisation.';
+    return 'Confirm who runs this component before testing.';
+  }
+  function testPlanRows(tp) {
+    var rows = [['Path', 'Priority', 'Attack path', 'Attacker objective', 'Starting position', 'Route', 'Threats exercised', 'Controls to challenge', 'Test case', 'What success looks like', 'Third-party permission needed for', 'Effort']];
+    tp.paths.forEach(function (p) {
+      var cases = p.cases.length ? p.cases : p.tests.map(function (v) { return v.id + ': ' + str(v.approach); });
+      if (!cases.length) cases = [''];
+      var success = p.success || p.tests.map(function (v) { return str(v.fail_criteria); }).filter(Boolean).join(' ');
+      cases.forEach(function (c) { rows.push([p.id, p.priority || (p.prio < 99 ? 'P' + p.prio : ''), p.title, p.objective, p.start, p.route.map(function (id) { return nameOf(id); }).join(' > '), p.threats.map(function (t) { return t.id; }).join(' '), p.controls.map(function (c2) { return c2.id; }).join(' '), c, success, p.vendor.map(function (id) { return nameOf(id); }).join('; '), p.effort]); });
+    });
+    return rows;
+  }
+  function testPlanButton(tp) {
+    var b = h('button', { type: 'button', class: 'btn noprint' }, 'Export test plan (CSV)');
+    b.addEventListener('click', function () {
+      var csv = '﻿' + testPlanRows(tp).map(function (r) { return r.map(csvCell).join(','); }).join('\r\n');
+      var a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' })); a.download = 'penetration-test-plan.csv';
+      document.body.appendChild(a); a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+    });
+    return b;
+  }
+  function pentestSection() {
+    var tp = testPaths(), paths = tp.paths, targets = testTargets(paths), out = [];
+    var lede = 'Where a penetration test should focus: the components that matter most, and the attack paths a tester should attempt.';
+    if (!openThreats.length) return section('pentest', '7', 'Penetration test plan', lede, [empty('No open threats were recorded, so no test plan is proposed.')]);
+    var nCases = paths.reduce(function (n, p) { return n + (p.cases.length || p.tests.length); }, 0);
+    out.push(paras(TP.objective).map(function (x) { return h('p', { class: 'lead' }, x); }),
+      h('p', { class: 'intro' }, 'This plan turns the threat model into a starting scope for a penetration test. It complements the verification plan: verification lists every check, including reviews and vendor assurance, while this section covers only what an attacker-style test can demonstrate, organised by attack path. It is a proposal for scoping, not an authorisation to test.'),
+      h('div', { class: 'nums' }, h('div', null, h('b', null, String(targets.length)), h('span', null, 'priority targets')), h('div', null, h('b', null, String(paths.length)), h('span', null, 'attack paths')), h('div', null, h('b', null, String(nCases)), h('span', null, 'test cases')),
+        h('div', null, h('b', null, String(paths.filter(function (p) { return p.vendor.length; }).length)), h('span', null, 'paths needing third-party permission'))));
+    var anyResp = targets.some(function (r) { return respOf(r.id); });
+    out.push(h('h3', { id: 'pt-targets' }, 'Priority targets'), h('p', { class: 'intro' }, 'Components ranked by the threats against them, then by exposure. Spend test effort from the top.'));
+    out.push(targets.length ? table([
+      { title: '#', width: '44px', sort: false, render: function (r) { return String(targets.indexOf(r) + 1); } },
+      { title: 'Target', width: '24%', sort: false, render: function (r) { return [titled(r.id), r.why ? h('span', { class: 'line note' }, r.why) : null]; } },
+      anyResp ? col('Run by', function (r) { return respTag(r.id) || h('span', { class: 'empty' }, 'Not recorded'); }) : null,
+      { title: 'Exposure', sort: false, render: function (r) { return r.entry ? 'Entry point' : (r.crossing ? 'Reached across a trust boundary' : 'Internal'); } },
+      { title: 'Open threats', sort: false, render: function (r) { return r.threats.length ? lines(r.threats, function (t) { return [ref(t.id), ' ', riskCell(t)]; }) : h('span', { class: 'empty' }, 'On an attack path'); } },
+      { title: 'Attack paths', sort: false, render: function (r) { return r.paths.length ? r.paths.map(function (p) { return h('a', { class: 'tid', href: '#pt-' + p.id }, p.id); }).reduce(function (acc, a) { if (acc.length) acc.push(' '); acc.push(a); return acc; }, []) : h('span', { class: 'empty' }, '—'); } },
+      anyResp ? { title: 'Testing access', width: '24%', sort: false, render: function (r) { return accessNote(r.id); } } : null].filter(Boolean), targets) : empty('No component has an open threat recorded against it.'));
+    out.push(h('h3', { id: 'pt-paths' }, 'Key attack paths'),
+      h('p', { class: 'intro' }, tp.derived ? 'One path per open threat, with the route worked out from the recorded data flows. Refine and combine these with the tester during scoping.' : 'The paths an attacker would most plausibly take to the outcomes that matter. Each lists the threats it exercises and the controls it should challenge.'));
+    if (paths.length) out.push(table([
+      { title: 'Path', width: '76px', sort: false, render: function (p) { return h('a', { class: 'tid', href: '#pt-' + p.id }, p.id); } },
+      { title: 'Priority', width: '80px', sort: false, render: pathPrioTag },
+      { title: 'Attack path', width: '30%', sort: false, render: function (p) { return h('b', null, p.title); } },
+      { title: 'Threats exercised', sort: false, render: function (p) { return lines(p.threats, function (t) { return [ref(t.id), ' ', riskCell(t)]; }); } },
+      { title: 'Controls to challenge', sort: false, render: function (p) { return p.controls.length ? refs(p.controls.map(function (c) { return c.id; })) : h('span', { class: 'tag bad' }, 'none recorded'); } },
+      { title: 'Test cases', width: '90px', sort: false, render: function (p) { return String(p.cases.length || p.tests.length) || '0'; } },
+      anyPathEffort(paths) ? col('Effort', function (p) { return tba(p.effort); }) : null].filter(Boolean), paths), h('p', null, testPlanButton(tp)));
+    paths.forEach(function (p) {
+      var cases = p.cases.length ? h('ol', { class: 'cases' }, p.cases.map(function (c) { return h('li', null, c); }))
+        : (p.tests.length ? h('ol', { class: 'cases' }, p.tests.map(function (v) { return h('li', null, ref(v.id), ' ', str(v.approach)); })) : h('span', { class: 'empty' }, 'No test case is defined yet; agree one with the tester.'));
+      var success = p.success ? p.success : (p.tests.length ? lines(p.tests, function (v) { return [ref(v.id), ' ', str(v.fail_criteria)]; }) : h('span', { class: 'empty' }, 'To be agreed'));
+      out.push(h('div', { class: 'card', id: 'pt-' + p.id }, h('div', { class: 'chead' }, h('span', { class: 'tid' }, p.id), pathPrioTag(p), p.vendor.length ? h('span', { class: 'tag warn' }, 'third-party permission needed') : null, p.derived ? h('span', { class: 'tag' }, 'derived from the model') : null, p.effort ? h('span', { class: 'tag' }, p.effort) : null),
+        h('p', { class: 'ctitle' }, p.title), routeStrip(p),
+        fields([p.objective ? ['Attacker objective', p.objective] : null, ['Starting position', p.start ? p.start : h('span', { class: 'empty' }, 'To be agreed')],
+          ['Threats exercised', lines(p.threats, function (t) { return [titled(t.id), ' ', riskCell(t), ' ', covTag(t)]; })],
+          ['Controls to challenge', p.controls.length ? lines(p.controls, function (c) { return [titled(c.id), ' ', tag(c.status === 'claimed' ? 'reported' : c.status)]; }) : 'No control is recorded on this path. The test should establish whether anything stops it.'],
+          ['Test cases', cases], ['What success looks like', success],
+          p.vendor.length ? ['Third-party permission', 'Needed before testing touches ' + joinList(p.vendor.map(function (id) { return nameOf(id); })) + '.'] : null,
+          p.reviews.length ? ['Covered by review, not testing', lines(p.reviews, function (v) { return [titled(v.id), ' ', h('span', { class: 'tag' }, VTYPE[vtype(v)])]; })] : null,
+          p.notes ? ['Notes', p.notes] : null])));
+    });
+    // What the tester needs
+    out.push(h('h3', { id: 'pt-prep' }, 'Before testing starts'));
+    var onPaths = uniq([].concat.apply([], paths.map(function (p) { return p.route; }))); var accounts = arr(sys.actors).filter(function (a) { return onPaths.indexOf(a.id) >= 0; }).map(function (a) { return nameOf(a.id); });
+    var vendorAll = uniq([].concat.apply([], paths.map(function (p) { return p.vendor; })));
+    var derivedPrep = [accounts.length ? 'Test accounts for each role on the attack paths: ' + joinList(accounts) + '.' : null,
+      'Written authorisation from the system owner, with the test window and emergency contacts.',
+      vendorAll.length ? 'Permission from each third party, or confirmation of its testing policy, for: ' + joinList(vendorAll.map(function (id) { return nameOf(id); })) + '.' : null,
+      'A non-production environment that matches production configuration, or agreed limits for testing in production.',
+      'This report and the architecture diagram, so the tester starts from the attack paths and not from discovery.'].filter(Boolean);
+    var prep = paras(TP.prerequisites), roe = paras(TP.rules_of_engagement);
+    var notTest = outstandingVerifs.filter(function (v) { return !PT_TESTABLE[vtype(v)]; });
+    out.push(fields([
+      str(TP.approach) ? ['Test approach', str(TP.approach)] : null,
+      str(TP.environment) ? ['Environment', str(TP.environment)] : null,
+      ['Prerequisites', list(prep.length ? prep : derivedPrep)],
+      ['Rules of engagement', roe.length ? list(roe) : h('span', { class: 'empty' }, 'To be agreed with the system owner before testing: permitted techniques, data handling, stop conditions and reporting of critical findings.')],
+      paras(TP.in_scope).length ? ['In scope', list(paras(TP.in_scope))] : null,
+      paras(TP.out_of_scope).length ? ['Out of scope', list(paras(TP.out_of_scope))] : null,
+      notTest.length ? ['Not suited to penetration testing', [h('span', { class: 'line' }, 'These checks are reviews or assurance requests. They stay in the verification plan.'), lines(notTest, function (v) { return [titled(v.id), ' ', h('span', { class: 'tag' }, VTYPE[vtype(v)])]; })]] : null]));
+    return section('pentest', '7', 'Penetration test plan', lede, out, [['pt-targets', 'Priority targets'], ['pt-paths', 'Key attack paths'], ['pt-prep', 'Before testing starts']]);
+  }
+  function anyPathEffort(paths) { return paths.some(function (p) { return p.effort; }); }
+
+  // ---------- 8 Scope and approach ----------
+  var DEFAULT_TRIGGERS = ['A new entry point, integration or third party is added.', 'Authentication, authorisation or session handling changes.', 'A new type of sensitive data is stored or shared.',
+    'An assumption listed in this section stops being true.', 'A recommendation is implemented, so the related threat can be retested and its rating updated.', 'A security incident or near miss involves this system.'];
+  function scopeSection() {
+    var sc = obj(M.scope), sa = obj(eng.scope_and_approach), out = [];
+    out.push(h('h3', { id: 'scope-scope' }, 'Scope'), h('p', { class: 'lead' }, str(sc.description)),
+      h('div', { class: 'two' }, h('div', null, h('h4', null, 'In scope'), list(sc.in_scope), h('h4', null, 'Objectives'), list(sc.objectives)), h('div', null, h('h4', null, 'Out of scope'), list(sc.out_of_scope))));
+    out.push(h('h3', { id: 'scope-approach' }, 'Approach'));
+    var ap = paras(sa.approach);
+    if (ap.length) ap.forEach(function (p) { out.push(h('p', null, p)); }); else out.push(h('p', { class: 'note' }, 'No approach narrative was supplied for this report.'));
+    if (arr(sa.activities).length) out.push(table([col('Phase', function (a) { return h('b', null, str(a.phase)); }, '260px'), col('What we did', function (a) { return str(a.description); })], sa.activities));
+    if (arr(M.methods).length) out.push(h('h4', null, 'Frameworks applied'), table([col('Framework', function (m) { return h('b', null, fwName(m.method_id)); }), col('Version', function (m) { return str(m.source_revision) || '—'; }), col('Coverage', function (m) { return tag(m.status); }),
+      col('How it was applied', function (m) { return list(m.applied); }), col('Not covered', function (m) { return list(m.omissions); })], M.methods, { anchor: true }));
+
+    out.push(h('h3', { id: 'scope-coverage' }, 'What was reviewed'), h('p', null, 'This assessment reviewed ' + reviewedLine() + '.'));
+    var tiles = reviewedParts() ? reviewedParts().map(function (p) { return [p[0], p[0] === 1 ? p[1] : (p[2] || p[1] + 's')]; }).concat(processed.length && CODE_ACCESS !== 'none' ? [[processed.length, 'source files read']] : [], [[unprocessed.length, 'items not available or not reviewed']])
+      : [[processed.filter(function (p) { return p.access === 'read'; }).length, 'files reviewed in full'], [processed.filter(function (p) { return p.access === 'partial'; }).length, 'files partly reviewed'], [docSources().length, 'design documents'], [arr(eng.workshops).length, 'workshops'], [unprocessed.length, 'areas not reviewed']];
+    out.push(h('div', { class: 'nums' }, tiles.map(function (p) { return h('div', null, h('b', null, String(p[0])), h('span', null, p[1])); })));
+    if (CODE_ACCESS === 'none') out.push(h('p', { class: 'basis' }, 'No source code was available for this assessment. Findings are based on the design documentation, diagrams and workshops listed in the appendices, and controls are as described by the client or vendor unless marked as observed.'));
+    var cov = paras(sa.review_coverage); if (!cov.length) cov = inspection.map(function (c) { return str(c.reason); });
+    cov.forEach(function (c) { out.push(h('p', null, c)); });
+    if (unprocessed.length) out.push(h('h4', null, 'Not reviewed'), table([col('Location', function (r) { return h('code', null, str(r.locator)); }), col('Reason', function (r) { return str(r.reason); })], unprocessed));
+    out.push(h('p', { class: 'note' }, 'The full list of reviewed files and documents is in ', h('a', { href: '#app-a' }, 'Appendix A'), '.'));
+
+    out.push(h('h3', { id: 'scope-assumptions' }, 'Assumptions'), h('p', { class: 'intro' }, 'The findings depend on these assumptions. If one turns out to be wrong, revisit the threats that rely on it.'));
+    var as = assumptions();
+    out.push(as.length ? table([col('Assumption', function (a) { return str(a.statement); }, '44%'), { title: 'Relied on by', sort: false, render: function (a) { return arr(a.refs).length ? refs(a.refs) : h('span', { class: 'empty' }, 'The assessment as a whole'); } }, col('If it is wrong', function (a) { return tba(a.if_wrong, '—'); })], as) : empty('No assumptions were recorded.'));
+    var val = obj(eng.validation), vItems = arr(val.items).filter(function (i) { return i && i.ref; });
+    if (arr(val.sessions).length || vItems.length) {
+      var vc = countBy(vItems, 'outcome'), changed = vItems.filter(function (i) { return i.outcome !== 'confirmed' && i.outcome !== 'not_discussed'; });
+      out.push(h('h3', { id: 'scope-validation' }, 'Validation with the client'), h('p', { class: 'intro' }, 'The draft threat model was walked through with the client before this report was written. ' +
+        (vItems.length ? plural(vc.confirmed || 0, 'item') + ' ' + ((vc.confirmed || 0) === 1 ? 'was' : 'were') + ' confirmed as drafted; the items below were corrected, added, rejected or left for the client to confirm.' : '')));
+      if (arr(val.sessions).length) out.push(table([col('Date', function (v) { return h('span', { class: 'mono' }, str(v.date)); }, '130px'), col('Session', function (v) { return h('b', null, str(v.title)); }), col('Attendees', function (v) { return list(v.attendees); })], val.sessions));
+      if (changed.length) out.push(table([{ title: 'Item', width: '34%', sort: false, render: function (i) { return byId.has(i.ref) ? titled(i.ref) : h('span', { class: 'mono' }, str(i.ref)); } }, col('Outcome', function (i) { var w = VALWORD[str(i.outcome)]; return h('span', { class: 'tag ' + (w ? w[1] : '') }, w ? w[0] : str(i.outcome)); }), col('What changed', function (i) { return str(i.note); })], changed));
+    }
+    out.push(h('h3', { id: 'scope-limits' }, 'Limitations'), limitations().length ? list(limitations()) : empty('No limitations were recorded.'));
+    out.push(h('h3', { id: 'scope-gaps' }, 'Open questions'), h('p', { class: 'intro' }, 'What the evidence did not show, and what would settle each one. Answering these may change the threats they affect.'));
+    out.push(gaps.length ? searchable(table([idCol(), col('Status', function (g) { return tag(g.status); }), col('What is unknown', function (g) { return str(g.description); }), col('What would settle it', function (g) { return str(g.needed); }),
+      { title: 'Affects', sort: false, render: function (g) { return refs(g.affected_refs); } }, col('Owner', function (g) { return tba(meta(g.id).owner); })], gaps, { anchor: true }), 'open questions') : empty('No open questions were recorded.'));
+    out.push(h('h3', { id: 'scope-current' }, 'Keeping this assessment current'), h('p', null, 'A threat model describes the system at a point in time. Revisit it when any of the following happens:'),
+      list(paras(eng.review_triggers).length ? paras(eng.review_triggers) : DEFAULT_TRIGGERS));
+    out.push(h('h3', { id: 'scope-terms' }, 'Terms used in this report'), table([col('Term', function (r) { return h('b', null, r[0]); }, '260px'), col('Meaning', function (r) { return r[1]; })], [
+      ['Observed', 'The weakness was seen in the source code or configuration reviewed. It has not been demonstrated against a running system.'],
+      ['Design concern', 'A plausible threat based on the design, documentation or what the client told us. It has not been observed directly, so it needs verification.'],
+      ['Reported control', 'A control described in documentation or by the client or vendor that this review did not observe or test.'],
+      ['Control reported, not verified', 'The only controls for the threat are reported ones.'],
+      ['No control in place', 'Nothing observed in the system today addresses the threat.'],
+      ['Partly controlled', 'A control exists, but the weakness was observed despite it or it covers only part of the threat.'],
+      ['Controlled, not yet verified', 'A control that addresses the threat is in place; its effectiveness has not been tested.'],
+      ['Controlled and verified', 'A control is in place and a test against this threat has passed.'],
+      ['Outstanding', 'A verification test that has been planned but not yet performed.']
+    ].concat(anyRated ? [['Risk rating', 'Likelihood and consequence combined using the matrix in Appendix C. Where two ratings are shown, the second is the target once the recommendation is in place.']] : [], anyPrio ? [['Priority (P1, P2 \u2026)', 'Order of attention, taken from the risk rating of the threats an action addresses. P1 is the highest rating in this report.']] : [])));
+    if (arr(M.changes).length) out.push(h('h3', null, 'Changes since the previous assessment'), table([idCol(), col('Change', function (r) { return tag(r.kind); }), refCol('Current', function (r) { return r.current_refs; }), col('Previous references', function (r) { return h('span', { class: 'mono' }, arr(r.previous_ids).join(', ') || '—'); }), col('Rationale', function (r) { return str(r.rationale); })], M.changes, { anchor: true }));
+    return section('scope', '8', 'Scope and approach', 'What this engagement covered and how it was delivered.', out, [['scope-scope', 'Scope'], ['scope-approach', 'Approach'], ['scope-coverage', 'What was reviewed'], ['scope-assumptions', 'Assumptions'], ['scope-gaps', 'Open questions']]);
+  }
+
+  // ---------- Appendices ----------
+  var showExcerpts = obj(eng.options).show_excerpts === true;
+  function appendixA() {
+    var out = [], supplied = arr(eng.artefacts).filter(function (a) { return a && a.name; });
+    // artefacts found in the model: repositories and documents with their revisions
+    var seen = {}, derived = [];
+    arr(M.evidence).forEach(function (e) {
+      if (e.source_kind === 'repository') { var k = 'repo|' + str(e.source_revision); if (!seen[k]) { seen[k] = { name: 'Source repository', type: 'Code repository', version: e.source_revision ? 'revision ' + e.source_revision : 'revision not recorded', n: 0 }; derived.push(seen[k]); } seen[k].n++; }
+      else if (e.source_kind === 'document' || e.source_kind === 'diagram' || e.source_kind === 'test_result') { var path = str(e.locator).replace(/:\d+(-\d+)?$/, ''), k2 = e.source_kind + '|' + path; if (!seen[k2]) { seen[k2] = { name: path, type: e.source_kind === 'document' ? 'Document' : e.source_kind.replace('_', ' '), version: str(e.source_revision) || 'not recorded', n: 0 }; derived.push(seen[k2]); } seen[k2].n++; }
+    });
+    out.push(h('h3', null, 'Artefacts supplied for the engagement'));
+    var cites = {}; arr(M.evidence).forEach(function (e) { var a = artefactFor(e); if (a) cites[a.id || a.name] = (cites[a.id || a.name] || 0) + 1; });
+    out.push(supplied.length ? table((catalogued ? [col('ID', function (a) { return h('span', { class: 'tid' }, str(a.id)); }, '80px')] : []).concat([col('Artefact', function (a) { return h('b', null, str(a.name)); }), col('Type', function (a) { return str(a.type); }), col('Version', function (a) { return h('span', { class: 'mono' }, str(a.version) || '—'); }), col('Date', function (a) { return str(a.date) || '—'; }), col('Source', function (a) { return str(a.source) || '—'; })], catalogued ? [col('Reviewed', function (a) { return ({ full: 'In full', partial: 'In part', not_read: 'Not reviewed' })[str(a.reviewed)] || '—'; }), { title: 'Evidence items', value: function (a) { return cites[a.id || a.name] || 0; }, render: function (a) { return String(cites[a.id || a.name] || 0); } }] : [], [col('Notes', function (a) { return str(a.notes); })]), supplied)
+      : h('p', { class: 'note' }, 'No artefact register was supplied for this report. The sources below are those cited by the evidence.'));
+    if (!catalogued) out.push(h('h3', null, 'Sources referenced by the evidence'));
+    if (!catalogued) out.push(derived.length ? table([col('Source', function (a) { return h('b', null, a.name); }), col('Type', function (a) { return a.type; }), col('Version', function (a) { return h('span', { class: 'mono' }, a.version); }), { title: 'Evidence items', value: function (a) { return a.n; }, render: function (a) { return String(a.n); } }], derived) : empty('No repository or document evidence is recorded.'));
+    out.push(h('h3', null, 'Detail'));
+    out.push(fold('Files reviewed', processed.length, processed.length ? searchable(table([col('Location', function (r) { return h('code', null, str(r.locator)); }), col('Extent', function (r) { return r.access === 'read' ? 'Full' : 'Partial'; }), col('Version and detail', function (r) { return str(r.coverage); }), col('Note', function (r) { return str(r.reason); })], processed), 'files') : empty('None recorded.')));
+    out.push(fold('Evidence references', arr(M.evidence).length, arr(M.evidence).length ? searchable(table([idCol(), col('Location', function (r) { return h('code', null, str(r.locator)); }),
+      { title: 'What it shows', width: '40%', render: function (r) { return h('span', null, str(r.statement), showExcerpts && r.excerpt ? h('pre', null, str(r.excerpt)) : null, r.limitations ? h('span', { class: 'line note' }, 'Limitations: ' + str(r.limitations)) : null); } },
+      col('Source', function (r) { return str(r.source_kind).replace('_', ' '); }), col('Version', function (r) { return h('span', { class: 'mono' }, str(r.source_revision) || '\u2014'); })], M.evidence, { anchor: true }), 'evidence items') : empty('None recorded.'), 'app-a-evidence'));
+    if (obj(eng.options).include_data_download === true) {
+      var btn = h('button', { type: 'button', class: 'btn noprint' }, 'Download the underlying data');
+      btn.addEventListener('click', function () {
+        var blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }), a = document.createElement('a');
+        a.href = URL.createObjectURL(blob); a.download = 'threat-model-data.json';
+        document.body.appendChild(a); a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+      });
+      out.push(h('p', null, btn));
+    }
+    return section('app-a', 'Appendix A', 'Artefacts', 'The design documentation, code and other material this engagement relied on, with versions.', out);
+  }
+  function appendixB() {
+    var ws = arr(eng.workshops).filter(function (w) { return w && (w.title || w.date); });
+    return section('app-b', 'Appendix B', 'Workshops', 'The sessions held during the engagement.', ws.length
+      ? table([col('Date', function (w) { return h('span', { class: 'mono' }, str(w.date) || '—'); }, '120px'), col('Workshop', function (w) { return h('b', null, str(w.title)); }), col('Attendees', function (w) { return list(w.attendees); }), col('Purpose', function (w) { return str(w.purpose); }), col('Outcomes', function (w) { return list(w.outcomes); })], ws)
+      : h('p', { class: 'basis' }, 'No workshops were recorded for this report. Supply the workshop list when building the report to complete this appendix.'));
+  }
+  function appendixC() {
+    var out = [], rated = risks.filter(function (r) { return r.status === 'rated'; });
+    if (rm && arr(rm.likelihood).length && arr(rm.consequence).length) {
+      out.push(h('p', null, h('b', null, str(rm.name) || 'Risk matrix'), rm.version ? ' version ' + str(rm.version) : '', rm.source ? '. ' + str(rm.source) : ''));
+      var L = arr(rm.likelihood), C = arr(rm.consequence), cells = arr(rm.cells), placed = {};
+      rated.forEach(function (r) {
+        var li = -1, ci = -1;
+        arr(r.inputs).forEach(function (inp) { var n = norm(inp.name), v = norm(inp.value);
+          if (/likelihood|probab/.test(n)) L.forEach(function (x, i) { if (norm(x.label) === v) li = i; });
+          if (/consequence|impact|severity/.test(n)) C.forEach(function (x, i) { if (norm(x.label) === v) ci = i; }); });
+        if (li >= 0 && ci >= 0) (placed[li + ':' + ci] = placed[li + ':' + ci] || []).push.apply(placed[li + ':' + ci], arr(r.threat_refs));
+      });
+      var t = h('table', { class: 'rm' });
+      append(t, [h('tr', null, h('th', { class: 'axis', rowspan: '2' }, 'Likelihood'), h('th', { class: 'axis', colspan: String(C.length) }, 'Consequence')),
+        h('tr', null, C.map(function (c) { return h('th', null, str(c.label), c.description ? h('small', null, str(c.description)) : null); }))]);
+      L.forEach(function (l, li) {
+        append(t, [h('tr', null, h('th', null, str(l.label), l.description ? h('small', null, str(l.description)) : null), C.map(function (c, ci) {
+          var lab = str(arr(cells[li])[ci]), td = h('td', { class: 'cell' }, lab, arr(placed[li + ':' + ci]).length ? h('div', null, uniq(placed[li + ':' + ci]).map(function (id) { return [ref(id), ' ']; })) : null);
+          var bg = ratingColor(lab) || '#5f5d68'; td.style.background = bg; td.style.color = inkFor(bg); return td;
+        }))]);
+      });
+      out.push(h('div', { class: 'tw' }, t));
+      if (Object.keys(placed).length) out.push(h('p', { class: 'note' }, 'Threat references show where each rated threat sits, from its agreed likelihood and consequence.'));
+      if (ratingDefs.length) out.push(h('h3', null, 'Rating definitions'), table([{ title: 'Rating', width: '160px', sort: false, render: function (d) { return ratingChip(d.label); } }, col('Meaning', function (d) { return str(d.description); })], ratingDefs));
+    } else out.push(h('p', { class: 'basis' }, 'No risk matrix was supplied for this report.' + (rated.length ? ' The rated risks below cite the matrix named against each.' : ' Risks are unrated.')));
+    out.push(h('h3', null, 'Risk register'));
+    out.push(risks.length ? table([idCol(), refCol('Threat', function (r) { return r.threat_refs; }), { title: 'Rating', value: function (r) { return r.status === 'rated' ? ratingRank(r.rating) : 99; }, render: function (r) { return r.status === 'rated' ? ratingChip(r.rating) : h('span', { class: 'tag warn' }, 'not yet rated'); } },
+      col('Inputs', function (r) { return list(arr(r.inputs).map(function (i) { return str(i.name) + ': ' + str(i.value); })); }), col('Rubric', function (r) { return r.rubric ? str(r.rubric.name) + (r.rubric.version ? ' ' + r.rubric.version : '') : '—'; }),
+      { title: 'Rationale and uncertainty', width: '34%', sort: false, render: function (r) { return h('span', null, str(r.rationale), r.uncertainty ? h('span', { class: 'line note' }, 'Uncertainty: ' + str(r.uncertainty)) : null); } }], risks, { anchor: true })
+      : empty('No risks were recorded.'));
+    if (rm && rated.length && rated.some(function (r) { return r.rubric && norm(r.rubric.name) !== norm(rm.name); })) out.push(h('p', { class: 'basis' }, 'Some ratings cite a matrix with a different name from the matrix shown here. Check that they are the same matrix.'));
+    return section('app-c', 'Appendix C', 'Risk matrix', 'The matrix used to rate risk in this engagement.', out);
+  }
+
+  // ====================================================================
+  // Assemble
+  // ====================================================================
+  var page = h('div', { id: 'page' });
+  function safe(fn, id, name) { try { return fn(); } catch (e) { return h('section', { class: 'sec', id: id }, h('p', { class: 'basis' }, name + ' could not be displayed: ' + str(e && e.message))); } }
+  // A shorter pack for the client validation call: what we understood, for them to confirm or correct.
+  function tick(words) { return { title: words, width: '120px', sort: false, render: function () { return h('span', { class: 'tick' }, '\u2610 Yes   \u2610 No'); } }; }
+  function packPage() {
+    var es = obj(eng.executive_summary), overview = paras(es.system_overview).length ? paras(es.system_overview) : paras(M.scope && M.scope.description);
+    var comps = arr(sys.actors).concat(arr(sys.entry_points), arr(sys.assets));
+    return [cover(),
+      h('div', { class: 'basis' }, h('h4', null, 'Purpose of this pack'), h('p', null, 'This is a draft for discussion. It sets out our understanding of the system, the controls we believe are in place and the threats identified so far. Please tell us what is wrong, missing or out of date. Nothing here is final, and no risk ratings have been agreed.')),
+      section('pack-system', '1', 'The system as we understand it', null, [overview.map(function (p) { return h('p', { class: 'lead' }, p); }), h('h3', null, 'Architecture'), diagram()]),
+      section('pack-components', '2', 'Components and who runs them', 'Please correct any component, description or owner that is wrong.', comps.length ? table([idCol(), col('Component', function (r) { return h('b', null, str(r.description)); }), col('Kind', function (r) { return str(r.kind); }),
+        col('Run by', function (r) { return respTag(r.id) || h('span', { class: 'empty' }, 'To confirm'); }), { title: 'Based on', sort: false, render: function (r) { return basisChips(r); } }, tick('Correct?')], comps) : empty('No components recorded.')),
+      section('pack-assumptions', '3', 'Assumptions to confirm', 'Our findings depend on these. Please tell us if any is not true.', assumptions().length ? table([col('Assumption', function (a) { return str(a.statement); }, '50%'), { title: 'Relied on by', sort: false, render: function (a) { return arr(a.refs).length ? refs(a.refs) : h('span', { class: 'empty' }, 'The assessment as a whole'); } }, tick('True?')], assumptions()) : empty('No assumptions recorded.')),
+      section('pack-controls', '4', 'Controls we believe are in place', 'Please confirm that each control exists and works as described.', controls.length ? table([idCol(), { title: 'Control', width: '38%', sort: false, render: function (c) { return h('span', null, str(meta(c.id).title) ? h('b', { class: 'line' }, str(meta(c.id).title)) : null, str(c.description), c.limitations ? h('span', { class: 'line note' }, 'Limit: ' + str(c.limitations)) : null); } },
+        col('Status', function (c) { return tag(c.status); }), { title: 'Based on', sort: false, render: function (c) { return basisChips(c); } }, { title: 'Addresses', sort: false, render: function (c) { return refs(c.threat_refs); } }, tick('Confirmed?')], controls) : empty('No controls recorded.')),
+      section('pack-threats', '5', 'Draft threats', 'Do these look right for your system? Is anything missing?', sortedThreats.length ? table([idCol(), { title: 'Threat', width: '36%', sort: false, render: function (t) { return h('span', null, h('b', { class: 'line' }, nameOf(t.id)), str(t.scenario)); } },
+        col('Why it matters', function (t) { return tba(meta(t.id).impact, 'To discuss'); }), { title: 'Control today', sort: false, render: function (t) { return h('span', null, covTag(t), h('span', { class: 'line' }, covNote(t))); } }, tick('Agree?')], sortedThreats) : empty('No threats recorded yet.')),
+      section('pack-questions', '6', 'Open questions', 'What we could not establish from the material. Answers here may change the threats above.', openGaps.length ? table([idCol(), col('What we do not know', function (g) { return str(g.description); }), col('What would settle it', function (g) { return str(g.needed); }), { title: 'Affects', sort: false, render: function (g) { return refs(g.affected_refs); } }], openGaps) : empty('No open questions.')),
+      h('footer', { class: 'foot' }, h('span', null, str(branding.footer_text) || str(branding.organisation)), h('span', null, 'Draft for validation \u00b7 ' + str(eng.report_date || eng.generated_at)))];
+  }
+  var isPack = obj(eng.options).pack === 'validation';
+  if (isPack) { reportStatus = 'Draft for validation'; isFinal = false; }
+  append(page, isPack ? (function () { try { return packPage(); } catch (e) { return [h('p', { class: 'basis' }, 'The validation pack could not be displayed: ' + str(e && e.message))]; } })() : [cover(), documentControl(),
+    data.status !== 'complete' ? h('p', { class: 'basis' }, h('b', null, 'Draft. '), 'The underlying assessment is marked incomplete, so parts of this report may be missing.') : null,
+    safe(execSummary, 'exec', 'Executive summary'), safe(techSummary, 'tech', 'Technical summary'), safe(threatsSection, 'threats', 'Threats'), safe(controlsSection, 'controls', 'Controls'),
+    safe(recsSection, 'recs', 'Recommendations'), safe(verifSection, 'verif', 'Verification'), obj(eng.options).test_plan === false ? null : safe(pentestSection, 'pentest', 'Penetration test plan'), safe(scopeSection, 'scope', 'Scope and approach'),
+    safe(appendixA, 'app-a', 'Appendix A'), safe(appendixB, 'app-b', 'Appendix B'), safe(appendixC, 'app-c', 'Appendix C'),
+    h('footer', { class: 'foot' }, h('span', null, str(branding.footer_text) || str(branding.organisation)), h('span', null, [eng.report_version ? 'Version ' + str(eng.report_version) : null, eng.report_date || eng.generated_at].filter(Boolean).join(' \u00b7 ')))]);
+
+  var nav = h('nav', { id: 'sidenav', 'aria-label': 'Contents' });
+  var navLinks = {};
+  NAV.forEach(function (n, i) {
+    if (n.num === 'Appendix A') nav.appendChild(h('h6', null, 'Appendices'));
+    var a = h('a', { href: '#' + n.id }, (/^\d/.test(n.num) ? n.num + '  ' : n.num.replace('Appendix ', '') + '  ') + n.title); navLinks[n.id] = a; nav.appendChild(a);
+    n.subs.forEach(function (sb) { nav.appendChild(h('a', { href: '#' + sb[0], class: 'sub' }, sb[1])); });
+  });
+  var themeBtn = h('button', { class: 'btn', type: 'button' }, 'Dark'), printBtn = h('button', { class: 'btn primary', type: 'button' }, 'Print or save PDF');
+  themeBtn.addEventListener('click', function () { var dark = root.getAttribute('data-skin') === 'dark'; if (dark) root.removeAttribute('data-skin'); else root.setAttribute('data-skin', 'dark'); themeBtn.textContent = dark ? 'Dark' : 'Light'; });
+  printBtn.addEventListener('click', function () { window.print(); });
+  var brandLogo = logoOk ? h('img', { alt: str(branding.organisation) + ' logo' }) : null; if (brandLogo) brandLogo.src = branding.logo_data_uri;
+  var side = h('aside', { id: 'side' }, h('a', { class: 'brand', href: '#top' }, brandLogo, h('b', null, reportTitle), h('span', null, str(eng.client || branding.organisation || 'Threat model report'))), nav, h('div', { class: 'sidefoot' }, printBtn, exportButton('Export actions'), themeBtn));
+  var cl = branding.classification && typeof branding.classification === 'object' && branding.classification.label ? h('div', { class: 'classification', role: 'note' }, str(branding.classification.label)) : null;
+  if (cl) cl.style.background = okColor(branding.classification.color) ? branding.classification.color : '#460073';
+  append(document.body, [side, h('div', { id: 'main' }, cl, page), tipEl]);
+
+  // Resolve references: link only to records that have an entry in this report.
+  function fixRefs(scope) {
+    Array.prototype.forEach.call(scope.querySelectorAll('a.ref'), function (a) {
+      var id = a.getAttribute('data-ref');
+      if (!document.getElementById(anchor(id))) a.replaceWith(h('span', { class: 'ref' + (byId.has(id) ? '' : ' dangling'), title: byId.has(id) ? label(id) : 'Reference not found' }, id));
+    });
+  }
+  fixRefs(document.body);
+  function openTarget() {
+    var id; try { id = decodeURIComponent(location.hash.slice(1)); } catch (e) { return; }
+    var el = id && document.getElementById(id); if (!el) return;
+    for (var p = el; p; p = p.parentElement) { if (p.tagName === 'DETAILS') p.open = true; if (p.classList && p.classList.contains('hidden')) p.classList.remove('hidden'); }
+    el.scrollIntoView();
+  }
+  window.addEventListener('hashchange', openTarget); openTarget();
+  if ('IntersectionObserver' in window) {
+    var io = new IntersectionObserver(function (entries) { entries.forEach(function (e) { if (e.isIntersecting) { Object.keys(navLinks).forEach(function (k) { navLinks[k].removeAttribute('aria-current'); }); if (navLinks[e.target.id]) navLinks[e.target.id].setAttribute('aria-current', 'true'); } }); }, { rootMargin: '-10% 0px -80% 0px' });
+    NAV.forEach(function (n) { var el = document.getElementById(n.id); if (el) io.observe(el); });
+  }
+  var reopen = [];
+  window.addEventListener('beforeprint', function () { reopen = []; Array.prototype.forEach.call(document.querySelectorAll('details'), function (d) { if (!d.open) { d.open = true; reopen.push(d); } }); });
+  window.addEventListener('afterprint', function () { reopen.forEach(function (d) { d.open = false; }); reopen = []; });
+})();
+</script>
+</body>
+</html>

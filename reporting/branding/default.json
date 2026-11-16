@@ -1,0 +1,15 @@
+{
+  "branding_version": "1.0",
+  "name": "default",
+  "organisation": null,
+  "prepared_by": null,
+  "prepared_for": null,
+  "logo_file": null,
+  "classification": {
+    "label": "CONFIDENTIAL",
+    "color": "#460073"
+  },
+  "colors": {},
+  "footer_text": null,
+  "disclaimer": null
+}

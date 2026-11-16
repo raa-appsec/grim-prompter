@@ -45,6 +45,7 @@ Open your project in your coding agent and ask:
 | A full privacy review | `/threat-model deep privacy` | `$threat-model deep privacy` |
 | One method on your code | `/threat-model STRIDE per element` | `$threat-model STRIDE per element` |
 | A review of how a branch changes an existing model | `/threat-model change main...feature` | `$threat-model change main...feature` |
+| An HTML report from a finished run | `/threat-model report` | `$threat-model report` |
 
 For a change review, name the earlier JSON report too: `using threat-model/2026-10-28-quick-api/quick-report.json as the baseline`. The agent needs both the code diff and the model you're updating. If you leave out the model, it asks.
 
@@ -65,6 +66,36 @@ Keep reports out of version control until you've reviewed them for sensitive det
 For more detail, see [running on your project](start-here.md#run-it-on-your-project).
 
 For MCP servers and agent tools, the review maps tools to backend credentials and effective permissions where evidence supports them, and records unknown grants or credential access as gaps. It examines shared-token blast radius and read/write separation, and examines whether tool descriptions and their post-approval updates can steer other trusted tools. See [Tool and Shared Credential Boundaries](reference/tool-credential-boundaries.md); conclusions still depend on the inspected evidence.
+
+## HTML reports
+
+Turn a finished run into one self-contained HTML report:
+
+```text
+/threat-model report
+/threat-model report for threat-model/2026-11-15-deep-api, client Acme, workshops in notes/workshops.md, risk matrix risk/matrix.json
+/threat-model deep api with STRIDE per element and ATT&CK, with html report
+```
+
+The report has a fixed structure: executive summary, technical summary (a clickable architecture diagram with threats, controls and verification marked on each component, plus an overview table), threats mapped to the frameworks used, controls in place, recommendations, verification required, a penetration test plan (priority targets and key attack paths), scope and approach, and appendices for artefacts, workshops and the risk matrix. It loads nothing from the network and embeds the full model, so review it before sharing. See the [reporting guide](reporting/README.md).
+
+## Run a client engagement
+
+The [engagement workflow](engagement/README.md) runs a consulting engagement end to end, with or without source code: take in architecture diagrams, design documents, vendor documentation and workshop transcripts; choose architecture lenses and methods; produce workshop questions; build a base threat model; validate it with the client; and issue the report. Each phase stops for a consultant decision.
+
+```text
+/engagement init for Acme, Payments platform, no code
+/engagement intake
+/engagement plan
+/engagement questions
+/engagement workshop
+/engagement model
+/engagement validation-pack
+/engagement validate
+/engagement report
+```
+
+Link `skills/engagement` beside `skills/threat-model` to enable it.
 
 ## Review the results
 
@@ -180,6 +211,7 @@ Choose a method for a specific question, such as authorization threats, privacy 
 | [Method selector](helpers/method-selector.md) | Choose the smallest useful set of methods for your decision and evidence |
 | [Model challenger](helpers/model-challenger.md) | Challenge an existing threat model's assumptions, look for counterexamples and name the evidence needed to strengthen its conclusions |
 | [Change reviewer](helpers/change-reviewer.md) | Review a proposed system change against an existing threat model, keeping its identities and history |
+| [Report builder](helpers/report-builder.md) | Build a self-contained, branded HTML report from a finished run |
 
 See the [catalog](catalog.md) for every prompt and the [artifact contract](reference/artifact-contract.md) for the JSON format.
 
